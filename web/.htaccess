@@ -1,0 +1,21 @@
+Options +FollowSymLinks +ExecCGI
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  #if file doesn't exist, talk to the controller 
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^(.*)$ /index.lua [QSA,L]
+</IfModule>
+
+AddHandler fastcgi-script fcg fcgi fpl
+
+<Files php.ini>
+  Order deny,allow
+  Deny from All
+</Files>
+
+AddHandler lua-cgi .lp .lua
+Action lua-fcgi /cgi-bin/lua.fcgi
+Action lua-cgi /cgi-bin/lua.cgi
+Options +FollowSymLinks
