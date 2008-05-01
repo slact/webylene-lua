@@ -5,6 +5,13 @@ core = {
 	init = function(self)
 
 		local ev = webylene.event
+		
+		--where oh where shall I put this?
+		
+		cgilua.GET = cgilua.QUERY
+		print(cgilua.GET, cgilua.POST)
+		cgilua.REQUEST = table.merge(cgilua.GET, cgilua.POST)
+		
 		ev:fire("start")
 		ev:start("load")
 			--load config
@@ -16,9 +23,7 @@ core = {
 			
 			--load core objects
 			ev:start("loadCore")
-				print "YES"
 				self:loadObjects("objects/core")
-				print "YES"
 				--ev:fire("coreLoaded")
 			ev:finish("loadCore")
 			

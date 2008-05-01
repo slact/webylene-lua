@@ -24,10 +24,10 @@ event = {
 			error("tried starting event <" .. event .. "> but it's already started.")
 		end
 		table.insert(self.activeEvents, event)
-		for i, event_handler in ipairs(self.handlers[event].start) do --yep.
+		for i, event_handler in pairs(self.handlers[event].start) do --yep.
 			event_handler()
 		end
-		for i, event_handler in ipairs(self.handlers[event].during) do 
+		for i, event_handler in pairs(self.handlers[event].during) do 
 			event_handler()
 		end
 		return self
@@ -40,10 +40,10 @@ event = {
 		end
 		table.remove(self.activeEvents, table.locate(self.activeEvents, event))
 		table.insert(self.finishedEvents, event)
-		for i, event_handler in ipairs(self.handlers[event].finish) do --yep.
+		for i, event_handler in pairs(self.handlers[event].finish) do --yep.
 			event_handler()
 		end
-		for i, event_handler in ipairs(self.handlers[event].after) do 
+		for i, event_handler in pairs(self.handlers[event].after) do 
 			event_handler()
 		end
 		return self
