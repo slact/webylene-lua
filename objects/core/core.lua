@@ -9,7 +9,6 @@ core = {
 		--where oh where shall I put this?
 		
 		cgilua.GET = cgilua.QUERY
-		print(cgilua.GET, cgilua.POST)
 		cgilua.REQUEST = table.merge(cgilua.GET, cgilua.POST)
 		
 		ev:fire("start")
@@ -49,21 +48,21 @@ core = {
 				local conf = yaml.load_file(path)
 				if conf.env[webylene.env] then	
 					table.mergeRecursivelyWith(conf, conf.env[webylene.env])
-					table.remove(conf, "env")
+					conf.env = nil
 				end
 				table.mergeRecursivelyWith(webylene.config, conf)
+
 			end,
 			lua	= function(path)
 				dofile(path)
 			end
 		}
 		
-		if loadFile[extension] == nil then
-			error("Config loader doesn't know what to do with the  <." .. extension .. "> extension.")
-		end
+		assert(loadFile[extension], "Config loader doesn't know what to do with the  <." .. extension .. "> extension.")
 		local absolutePath = webylene.path .. "/" .. relativePath
 		for file in lfs.dir(absolutePath) do																				-- is this part right?...
-			if file ~= "." and file ~= ".."  and lfs.attributes(absolutePath .. "/" .. file, mode)=="file" and file:sub(-#extension) == extension then
+			if file ~= "." and file ~= ".."  and lfs.attributes(absolutePath .. "/" .. file, "mode")=="file" and file:sub(-#extension) == extension then
+				--print ("will load <" .. absolutePath .. "/" .. file .. ">\n")
 				loadFile[extension](absolutePath .. "/" .. file)
 			end
 		end

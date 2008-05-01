@@ -1,0 +1,114 @@
+---
+router:
+  routes:
+      
+    - example: 
+        - /((?P<view>(hottest|latest|saved|highest))(/|/p?(?P<page>\d+))?)?
+        - /((?P<mode>async)/)?submissions(/|/p?(?P<page>\d+))?
+      ref: example
+
+  #backwards-compatibility for the oldschool
+    - destination: 
+        script: submissions
+        param: { view: 'hottest' }
+      path: 
+        url: /hot(/|/p?(?P<page>\d+))?
+        param: 
+          hi: ho
+          eat: cheese
+      ref: submissions
+
+    - destination: 
+        script: submissions
+        param: { view: 'latest' }
+      path: 
+        - /submissions/(?P<submitter>[^/]+)(/|/p?(?P<page>\d+))?
+        - /user/(?P<submitter>[^/]+)/submissions(/|/p?(?P<page>\d+))?
+      ref: submissions
+        
+
+      
+    - register: (/async)?/register/?
+      title: register
+    
+    - login: (/async)?/login/?
+      title: login
+
+    - submit: /submit/?
+      title: submit a link
+
+    - admin: /admin/?
+      title: administer stuff
+
+    - destination: 
+        script: submissions
+        param: { view: hottest, action: logout }
+      path: /logout/?
+      ref: logout
+    
+    - categories: /categories
+    
+    - waitgif: /img/wait.gif
+    
+    - async/link: (/async)?/(?P<action>(save|unsave|hide|vote))
+
+    - async/over18: (/async)?/over18
+    
+    - visit: /link/(?P<link>.*) 
+
+    - user: /user/(?P<user>[^/]*?)
+    
+    - about: /about
+      title: about
+    - tos: /tos
+      title: terms of service
+    - privacy: /privacy
+      title: privacy policy
+
+    
+#    - tests: /tests
+#    - info: /info
+    
+    - captcha: /captcha
+  
+  '404': 404
+  
+  matchFiles: true
+  
+  destinations:
+    location: scripts
+    extension: .lua
+
+
+env: 
+  dev:
+    router:
+      routes:
+        - debug/reset18: /reset18
+
+# example routes:
+#   routes:
+#    - destination:
+#        script: submissions
+#        param: { view: new }
+#      path: 
+#        url: /new
+#        param:
+#      
+#    - destination:
+#        script: submissions
+#      path:
+#        url: 
+#          - /top
+#          - /hot
+#          - /submissions 
+#          
+#    - bacon: /eggs/much/cheese
+#    
+#    - foods: [ /pork, /sausages, /cheese ]
+#    
+#    - submillion:
+#        url: |/sdddsasd/i
+#        param: { llloooo: kqqqq }
+#  
+#    - submissions: /   

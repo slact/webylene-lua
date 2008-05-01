@@ -1,29 +1,17 @@
 --require "cgilua"
-print = cgilua.print
-cgilua.contentheader("text","plain")
+
+do
+	local headers_sent = false
+	print = function(...)
+		if not headers_sent then
+			cgilua.contentheader("text", "html")
+		end
+		cgilua.print(unpack(arg))
+	end
+end
+
 webylene = {
 	path = "/home/leop/sandbox/webylene/lua/trunk", --this sucks
-	
-	notFound = {},
-	
-	import = function(self, object_name)
-		if rawget(self, object_name) ~= nil then
-			return self.object_name
-		elseif self.notFound[object_name] then
-			return nil
-		end
-		local dirs = {"objects/core", "objects", "objects/plugins"} --where shall we look?
-		local result
-		for i,dir in pairs(dirs) do
-			result = self:importChunk(loadfile(self.path .. "/" .. dir .. "/" .. object_name .. ".lua"), object_name)
-			if result ~= nil then
-				return result
-			end
-		end		
-		-- we tried, but failed. make a note of it, and move on... :'(  
-		self.notFound[object_name] = true
-		return nil
-	end, 
 	
 	importChunk = function(self, file_chunk, object_name)
 		if file_chunk == nil then return end 
@@ -55,6 +43,28 @@ webylene = {
 		return nil
 	end
 }
+
+do
+	local notFound = {}
+	webylene.import = function(self, object_name)
+		if rawget(self, object_name) ~= nil then
+			return self.object_name
+		elseif notFound[object_name] then
+			return nil
+		end
+		local dirs = {"objects/core", "objects", "objects/plugins"} --where shall we look?
+		local result
+		for i,dir in pairs(dirs) do
+			result = self:importChunk(loadfile(self.path .. "/" .. dir .. "/" .. object_name .. ".lua"), object_name)
+			if result ~= nil then
+				return result
+			end
+		end		
+		-- we tried, but failed. make a note of it, and move on... :'(  
+		notFound[object_name] = true
+		return nil
+	end
+end
 
 setmetatable(webylene, {
 	__index = function(tbl, key) --trigger the importer
@@ -129,6 +139,15 @@ function extractFilename(path)
 	local i = #path
 	while i > 0 and path[i] ~= "/" do i = i-1 end
 	return path:sub(i)
+end
+
+function table.isarray(t)
+	for i,v in pairs(t) do
+		if(type(i) ~= "number") then
+			return false
+		end
+	end
+	return true
 end
 
 function table.show(t, name, indent)
