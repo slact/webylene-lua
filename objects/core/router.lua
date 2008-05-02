@@ -5,6 +5,7 @@ router = {
 
 	init = function(self)
 		--route when it's time to do so
+		
 		event:addListener("route", function()
 			self:route(cgilua.servervariable("SCRIPT_URI"))
 		end)
@@ -65,11 +66,11 @@ router = {
 			--path urls. it's an and.
 			if self:oughtToRegex(furl) then
 				--regex comparison
-				local matches = {rex.new("^" .. furl .. "$"):tfind(url)}
+				local matches = {rex.new("^" .. furl .. "$"):exec(url)}
 				if #matches ~= 0 then --the regexp matched!
-					for k, val in pairs(matches[3]) do
+					for name, val in pairs(matches[3]) do
 					--expand named regex captures into REQUEST parameters
-						if type(k) == "string" then
+						if type(name) == "string" and val ~= false then
 							cgilua.REQUEST[name]=val
 						end
 					end
@@ -84,13 +85,12 @@ router = {
 				break
 			end
 		end
-		
 		return (match.url and match.param)
 	end,
 
 	
 	oughtToRegex = function(self, urlPattern)
-		return urlPattern:sub(1,2) == "|"
+		return urlPattern:sub(1,2) ~= "|"
 	end,
 	
 	parser = {

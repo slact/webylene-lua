@@ -49,7 +49,6 @@ event = {
 		return self
 	end,
 	
-	
 	addListener = function(self, eventName, listener)
 		--adding  eventName
 		table.insert(self.handlers[eventName].during, listener) --add the event!

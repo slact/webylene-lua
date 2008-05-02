@@ -46,7 +46,7 @@ core = {
 			yaml = function(path)
 				require "yaml"
 				local conf = yaml.load_file(path)
-				if conf.env[webylene.env] then	
+				if conf.env and conf.env[webylene.env] then	
 					table.mergeRecursivelyWith(conf, conf.env[webylene.env])
 					conf.env = nil
 				end

@@ -1,0 +1,27 @@
+#  Templates config
+---
+
+#container templates. default is a reserved word.
+layouts:
+  default: layout
+
+#template list
+#
+# templateName:
+#   path: path-to-template
+#   css:
+#     - list of required
+#     - css files (from web root, but check your layout template to see precisely how and where they're linked)
+#   js:
+#     - list of required
+#     - js files (from web root, but check your layout template to see precisely how and where they're linked)
+#   stub: true (set this if templateName doesn't need to be put inside the layout template.)
+#
+#
+
+templates: 
+  layout:
+    path: layout.lp
+  
+  example: example.lp
+ 

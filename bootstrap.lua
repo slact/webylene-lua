@@ -1,10 +1,12 @@
---require "cgilua"
+require "cgilua"
+require "lfs"
 
 do
 	local headers_sent = false
 	print = function(...)
 		if not headers_sent then
-			cgilua.contentheader("text", "html")
+			cgilua.contentheader("text", "plain")
+			headers_sent = true
 		end
 		cgilua.print(unpack(arg))
 	end
@@ -31,12 +33,12 @@ webylene = {
 	end,
 	
 	importFile = function(self, file_path, object_name)
-		object_name = object_name or extractFilename(file_path):sub(1, (-#".lua"-1))
+		local object_name = object_name or extractFilename(file_path):sub(1, (-#".lua"-1))
 		--print("OBJ:" .. object_name .. " PATH:" .. file_path .. "\n" )
 		if rawget(self, object_name) ~= nil then
-			return self.object_name
+			return self[object_name]
 		end
-		local result = self:importChunk(loadfile(file_path), object_name)
+		local result = self:importChunk(assert(loadfile(file_path)), object_name)
 		if result ~= nil then
 			return result
 		end
@@ -53,11 +55,15 @@ do
 			return nil
 		end
 		local dirs = {"objects/core", "objects", "objects/plugins"} --where shall we look?
-		local result
+		local f, path, result
 		for i,dir in pairs(dirs) do
-			result = self:importChunk(loadfile(self.path .. "/" .. dir .. "/" .. object_name .. ".lua"), object_name)
-			if result ~= nil then
-				return result
+			path = self.path .. "/" .. dir .. "/" .. object_name .. ".lua"
+			f = io.open(path, "r")
+			if f then
+				result = self:importChunk(assert(loadstring(f:read("*all"), dir .. "/" .. object_name .. ".lua")), object_name)
+				if result ~= nil then
+					return result
+				end
 			end
 		end		
 		-- we tried, but failed. make a note of it, and move on... :'(  
@@ -103,7 +109,9 @@ end
 
 function table.mergeRecursivelyWith(t1, t2)
 	for i,v in pairs(t2 or {}) do
-		if type(v) == "table" and type(t1[i]) == "table" then
+		if type(i) == "number" then
+			table.insert(t1, v)
+		elseif type(v) == "table" and type(t1[i]) == "table" then
 			t1[i] = table.mergeRecursivelyWith(t1[i], v)
 		else
 			t1[i] = v
@@ -179,7 +187,9 @@ function table.show(t, name, indent)
          end
       elseif type(o) == "number" then
          return so
-      else
+      elseif type(o) == "boolean" then
+		 return so
+	  else
          return string.format("%q", so)
       end
    end

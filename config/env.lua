@@ -1,3 +1,3 @@
 -- configure stuff here 
  
- webylene.env = "dev"
+webylene.env = "dev"
