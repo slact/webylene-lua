@@ -23,6 +23,8 @@ template = {
 		end)
 	end, 
 	
+	layout = false,
+	
 	discover_templates = function(self)
 		local absolutePath = webylene.path .. "/templates"
 		local extension = ".lp"
@@ -52,8 +54,7 @@ template = {
 		
 		locals = locals or {}
 		
-		-- INCOMPLETE: layout picking logic
-		local layout = self.settings.layouts.default
+		local layout = self.layout or self.settings.layouts.default
 		
 		--settings templates at(templateName) print
 		local template_data = self.settings.templates[templateName].data
@@ -64,7 +65,6 @@ template = {
 		if self.settings.templates[templateName].stub or self.settings.templates[templateName].standalone or not layout then
 			self:include(settings.templates[templateName], locals)
 		else
-			--what layout should i use?
 			locals.child = self.settings.templates[templateName] --let the layout know what to include
 			
 			local templateRefs, layoutRefs
@@ -74,14 +74,44 @@ template = {
 				locals[ref] = table.merge(templateRefs, layoutRefs)
 				
 			end
+			
+			--TODO: add recursive parent support. this might involve reworking this whole thing.
+			
 			self:include(self.settings.templates[layout], locals)
 		end
 	end,
 	
 	include = function(self, template, locals)
 		
-		cgilua.lp.include(webylene.path .. "/templates/" .. template.path, setmetatable(locals, {__index=_G}))
-	end
+		cgilua.lp.include(webylene.path .. "/templates/" .. template.path, self:prepareLocals(locals))
+	end,
+	
+	prepareLocals = function(self, locals)
+		locals = locals or {}
+		return setmetatable(locals, {__index=self.insider})
+	end,
+		
+	
+	--- stuff available from inside a template. 
+	insider = setmetatable({ 
+		myChild = function(locals)
+			locals = locals or getfenv(2)
+			local child = locals.child
+			locals.child = nil
+			--any way i can make the following relative?
+			webylene.template:include(child, locals)
+		end,
+		
+		title = function()
+			return webylene.router.currentRoute.param.title
+		end,
+		
+		ref = function()
+			print(table.show(webylene.router.currentRoute))
+		end
+		
+	}, {__index=_G})
+	
 
-	}
+}
 	

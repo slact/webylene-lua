@@ -10,6 +10,7 @@ router:
       ref: example
     
     - default: /defaulty
+      title: Titled Undocument 
     
     - about: /about
       title: about

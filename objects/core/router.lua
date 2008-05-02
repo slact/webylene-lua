@@ -137,7 +137,7 @@ router = {
 			
 		extractBaseParam = function(self, contents) 
 			local param = {}
-			for key,val in pairs(self.knownParams) do
+			for i,key in pairs(self.knownParams) do
 				if contents[key] then 
 					param[key]=contents[key]
 					contents[key]=nil

@@ -5,7 +5,7 @@ do
 	local headers_sent = false
 	print = function(...)
 		if not headers_sent then
-			cgilua.contentheader("text", "plain")
+			cgilua.contentheader("text", "html")
 			headers_sent = true
 		end
 		cgilua.print(unpack(arg))
