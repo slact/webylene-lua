@@ -1,6 +1,14 @@
 require "cgilua.cookies"
 require "cgilua.serialize"
 require "sha1"
+
+
+--- session managing object
+-- attaches itself to some core and sendHeaders events
+-- events
+--  - readSession:			after initializing the storage engine. prolonged event. (started after "configLoaded")
+--  - writeSession:			prolonged event associated with writing and storing session data. (started after "ready" finishes)
+
 session = {
 	init = function(self)
 	
@@ -15,8 +23,9 @@ session = {
 			
 			event:addAfterListener("loadCore", function()
 				engine:init()
-				event:fire("readSession")
+				event:start("readSession")
 				engine:read(self.id)
+				event:finish("readSession")
 			end)
 			
 			event:addListener("sendHeaders", function()
@@ -29,8 +38,9 @@ session = {
 				local buf = {}
 				cgilua.serialize(self.data, function(s) table.insert(buf, s) end)
 				buf = table.concat(buf, "")
-				event:fire("writeSession")
+				event:start("writeSession")
 				engine:write(self.id, buf)
+				event:finish("writeSession")
 				
 				math.randomseed(os.time())
 				if math.random(1, math.ceil(1/(self.config.gc_chance))) == 1 then

@@ -21,3 +21,11 @@ session:
   
   #chance that the session garbage collector will run on a given request
   gc_chance: 0.5
+  
+user:
+  
+  #stave off rainbow table attacks
+  password_salt: ~pãRÖòøBµ³dÀºÚáb²Ö
+  user_table: user
+  username_column: username
+  password_column: password
