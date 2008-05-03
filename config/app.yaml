@@ -20,4 +20,4 @@ session:
   expires: 3600
   
   #chance that the session garbage collector will run on a given request
-  gc_chance: 0.05
+  gc_chance: 0.5

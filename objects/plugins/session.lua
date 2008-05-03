@@ -15,11 +15,13 @@ session = {
 			
 			event:addAfterListener("loadCore", function()
 				engine:init()
+				event:fire("readSession")
 				engine:read(self.id)
 			end)
 			
 			event:addListener("sendHeaders", function()
 				local buf = {}
+				--print "SETCOOKIE: awesome\n\n\n"
 				cgilua.cookies.set(self.config.name, session.id, {expires = os.time()+self.config.expires, path="/"})
 			end)
 			
@@ -27,6 +29,7 @@ session = {
 				local buf = {}
 				cgilua.serialize(self.data, function(s) table.insert(buf, s) end)
 				buf = table.concat(buf, "")
+				event:fire("writeSession")
 				engine:write(self.id, buf)
 				
 				math.randomseed(os.time())
@@ -95,8 +98,7 @@ do
 				assert(self.db:query("DELETE FROM " .. self.table .. " WHERE id='" .. self.db:esc(id) .. "';"))
 			end,
 			gc = function(self, max_lifetime)
-				print ("GARBAGECOLLECT!")
-				assert(self.db:query("DELETE FROM " .. self.table .. "WHERE timestamp < from_unixtime(UNIX_TIMESTAMP() - " .. max_lifetime .. ");"))
+				assert(self.db:query("DELETE FROM " .. self.table .. " WHERE `timestamp` < from_unixtime(UNIX_TIMESTAMP() - " .. max_lifetime .. ");"))
 			end
 		}
 	}
