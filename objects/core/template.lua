@@ -107,7 +107,7 @@ template = {
 		end,
 		
 		ref = function()
-			print(table.show(webylene.router.currentRoute))
+			return webylene.router.currentRoute.param.ref
 		end
 		
 	}, {__index=_G})

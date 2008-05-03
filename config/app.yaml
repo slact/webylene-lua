@@ -1,0 +1,23 @@
+database: 
+  host: mysql.slact.net
+  username: localuser
+  password: wavylocal22
+  db: webylene
+
+  
+session:
+  enabled: true
+  storage: database
+  name: session
+  
+  #if engine=database, what table do we use?
+  table: session
+  
+  #if engine=filesystem, what path do we use?
+  path: /tmp
+  
+  #expiration time in seconds
+  expires: 3600
+  
+  #chance that the session garbage collector will run on a given request
+  gc_chance: 0.05

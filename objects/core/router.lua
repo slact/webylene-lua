@@ -154,6 +154,7 @@ router = {
 			route.path = self:path(contents.path or val) --path or first value in contents
 			route.destination = self:destination(contents.destination or key) --destination or first key in contents
 			route.param = self:param(table.mergeRecursivelyWith(baseParam, contents.param))
+			route.param.ref = route.param.ref or route.destination.script -- auto-ref
 			return route
 		end
 	}
