@@ -9,11 +9,11 @@ user = {
 	init = function(self)
 		event:addAfterListener("configLoaded", function()
 			self.config = cf("user")
-		end
+		end)
 		
 		event:addAfterListener("readSession", function()
 			self.data = session.data.user
-		end
+		end)
 	end,
 	
 	login = function(self, username, plaintext_password, hashed_password)
@@ -45,7 +45,7 @@ user = {
 	
 	find = function(self, username)
 		local db = webylene.db
-		local cur = db:query(string.format("SELECT * FROM %s WHERE `%s` = '%s'", self.config.table, self.config.username_column, self.config.password_column, db::esc(username)))
+		local cur = db:query(string.format("SELECT * FROM %s WHERE `%s` = '%s'", self.config.table, self.config.username_column, self.config.password_column, db:esc(username)))
 		local user = cur and cur:fetch({},'a')
 		cur:close()
 		if user then
