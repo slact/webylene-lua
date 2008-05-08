@@ -5,7 +5,6 @@ core = {
 	init = function(self)
 
 		local ev = webylene.event
-		
 		--where oh where shall I put this?
 		
 		cgilua.GET = cgilua.QUERY

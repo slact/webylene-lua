@@ -2,7 +2,7 @@
 -- a crisp is a variable that persists for the next request, and then gets removed -- unless explicitly prolonged
 crisp = {
 	init = function(self)
-		event:addAfterListener("readSession", function() webylene.session.data.crisps = webylene.session.data.crisps or {}; session.data.crisps = webylene.session.data.crisps end)
+		event:addAfterListener("readSession", function() session.data.crisps = session.data.crisps or {}; end)
 		event:addStartListener("writeSession", function() self:clean() end)
 	end,
 	
@@ -20,7 +20,7 @@ crisp = {
 	-- @return boolean 	 	  
 	addCleaner = function(self, crisp, func)
 		if self.crisps[name] and type(func)=="function" then
-			table.insert(webylene.session.data.crisps[name].cleaners, func)
+			table.insert(session.data.crisps[name].cleaners, func)
 		else
 			return nil
 		end

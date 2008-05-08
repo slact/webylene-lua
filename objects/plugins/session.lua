@@ -24,7 +24,7 @@ session = {
 			event:addAfterListener("loadCore", function()
 				engine:init()
 				event:start("readSession")
-				self.data = engine:read(self.id)
+				self.data = engine:read(self.id) or {}
 				event:finish("readSession")
 			end)
 			
@@ -82,11 +82,12 @@ do
 				self.db = db
 				tbl_name = session.config.table or "session"
 				self.table = tbl_name
-				
+				return self
 			end,
 			
 			close = function(self)
 				--nothin'
+				return self
 			end, 
 			
 			read = function(self, id)
@@ -105,9 +106,11 @@ do
 			
 			delete = function(self, id)
 				assert(self.db:query("DELETE FROM " .. self.table .. " WHERE id='" .. self.db:esc(id) .. "';"))
+				return self
 			end,
 			gc = function(self, max_lifetime)
 				assert(self.db:query("DELETE FROM " .. self.table .. " WHERE `timestamp` < from_unixtime(UNIX_TIMESTAMP() - " .. max_lifetime .. ");"))
+				return self
 			end
 		}
 	}
