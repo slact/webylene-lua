@@ -24,7 +24,7 @@ session = {
 			event:addAfterListener("loadCore", function()
 				engine:init()
 				event:start("readSession")
-				engine:read(self.id)
+				self.data = engine:read(self.id)
 				event:finish("readSession")
 			end)
 			
@@ -36,9 +36,9 @@ session = {
 			
 			event:addFinishListener("ready", function()
 				local buf = {}
+				event:start("writeSession")
 				cgilua.serialize(self.data, function(s) table.insert(buf, s) end)
 				buf = table.concat(buf, "")
-				event:start("writeSession")
 				engine:write(self.id, buf)
 				event:finish("writeSession")
 				
@@ -69,7 +69,7 @@ session = {
 		return res
 	end,
 
-	data = {foo = "Bar"}
+	data = {}
 }
 
 do
@@ -92,8 +92,9 @@ do
 			
 			read = function(self, id)
 				local cur = assert(self.db:query("SELECT data FROM " .. self.table .. " WHERE id = '" .. self.db:esc(id) .. "';"))
-				local res = cur:fetch({},'i')
-				if res then res = res[1] end --the column
+				local res = cur:fetch({},'n')
+				if res then res = assert(loadstring("return " .. res[1]))() end --the column
+				print(table.show(res))
 				cur:close()
 				return res
 			end,

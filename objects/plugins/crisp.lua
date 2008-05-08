@@ -1,6 +1,10 @@
 --- an object to access crisps
 -- a crisp is a variable that persists for the next request, and then gets removed -- unless explicitly prolonged
 crisp = {
+	init = function(self)
+		event:addAfterListener("readSession", function() session.data.crisps = session.data.crisps or {} end)
+		event:addStartListener("writeSession", function() self:clean() end)
+	end,
 	
 	exists = function(self, name)
 		return webylene.session.data.crisps[name]
@@ -64,6 +68,7 @@ crisp = {
 	--- run in bootstrap to clean the crisps.
 		  	 
 	clean = function(self)
+		print "CLEANING crisps"
 		if not webylene.session.data.crisps then webylene.session.data.crisps = {} end
 		local crisps = webylene.session.data.crisps
 		
@@ -73,15 +78,11 @@ crisp = {
 					func(crisp.val, name)
 				end
 				if not crisp.keep then -- re-check, in case a cleaner decided to renew the crisp
-					crisp = nil
+					crisps[name] = nil
 				end
 			else
 				crisp.keep=false
 			end
 		end
-	end,
-	
-	init = function(self)
-		event:addStartListener("writeSession", function() self:clean() end)
 	end
 }

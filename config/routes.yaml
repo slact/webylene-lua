@@ -3,13 +3,8 @@ router:
   routes:
       
     - bacon: /bacon/((?P<cheese>cheesy)/)?(?P<baconesque>(chewy|raw|crunchy))
-
-    - example: 
-        - /((?P<view>(hottest|latest|saved|highest))(/|/p?(?P<page>\d+))?)?
-        - /((?P<mode>async)/)?submissions(/|/p?(?P<page>\d+))?
-      ref: example
     
-    - default: /defaulty
+    - default: /[^q]*
       title: Titled Undocument 
     
     - about: /about
