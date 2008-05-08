@@ -14,7 +14,21 @@ do
 end
 
 webylene = {
-	path = "/home/leop/sandbox/webylene/lua/trunk", --this sucks
+	locate = function(self, path)
+		local path = cgilua.script_pdir
+		local slash_byte = string.byte("/",1)
+		for i=#path-1, 1, -1 do   --i=path-1 to ignore trailing slash.
+			if path:byte(i) == slash_byte then
+				self.locate = nil
+				self.path = path:sub(1, i-1)
+				return self.path
+			end
+		end
+		return nil, "couldn't find webylene root!!. cgilua.script_pdir was <" .. tostring(cgilua.script_pdir) .. ">."
+	end,
+	
+	path = "",
+	config = {},
 	
 	importChunk = function(self, file_chunk, object_name)
 		if file_chunk == nil then return end 
@@ -238,12 +252,7 @@ function table.show(t, name, indent)
    return cart .. autoref
 end
 
--- do some webylene stuff
-
-webylene.config={}
-
---config getter shorthand
-
+--where am i?
+assert(webylene:locate())
 -----
-
 webylene:import("core")
