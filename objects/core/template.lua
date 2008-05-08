@@ -38,7 +38,7 @@ template = {
 		local discovered = {}
 		for file in lfs.dir(absolutePath) do
 			if file ~= "." and file ~= ".."  and lfs.attributes(absolutePath .. "/" .. file, "mode")=="file" and file:sub(-#extension) == extension and not known_template_files[file] then
-				table.insert(discovered, {path=file})
+				discovered[file:sub(1,-(#extension+1))]={path=file}
 			end
 		end
 		return discovered
