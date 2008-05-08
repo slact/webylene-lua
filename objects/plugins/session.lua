@@ -30,7 +30,6 @@ session = {
 			
 			event:addListener("sendHeaders", function()
 				local buf = {}
-				--print "SETCOOKIE: awesome\n\n\n"
 				cgilua.cookies.set(self.config.name, session.id, {expires = os.time()+self.config.expires, path="/"})
 			end)
 			
@@ -94,7 +93,6 @@ do
 				local cur = assert(self.db:query("SELECT data FROM " .. self.table .. " WHERE id = '" .. self.db:esc(id) .. "';"))
 				local res = cur:fetch({},'n')
 				if res then res = assert(loadstring("return " .. res[1]))() end --the column
-				print(table.show(res))
 				cur:close()
 				return res
 			end,

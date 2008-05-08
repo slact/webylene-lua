@@ -24,8 +24,8 @@ session:
   
 user:
   
-  #stave off rainbow table attacks
+  #stave off rainbow table attacks. CHANGE THIS to some random string.
   password_salt: ~pãRÖòøBµ³dÀºÚáb²Ö
-  user_table: user
+  table: user
   username_column: username
   password_column: password
