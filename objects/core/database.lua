@@ -24,7 +24,7 @@ database = {
 	end,
 	
 	rows = function(self, cur, mode)
-		mode = mode or 'a'
+		local mode = mode or 'a'
 		return function()
 			return cur:fetch({}, mode)
 		end

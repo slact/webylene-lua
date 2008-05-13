@@ -1,18 +1,6 @@
 require "cgilua"
 require "lfs"
 
-do
-	local headers_sent = false
-	print = function(...)
-		if not headers_sent then
-			headers_sent = true
-			event:fire("sendHeaders")
-			cgilua.contentheader("text", "html")
-		end
-		cgilua.print(unpack(arg))
-	end
-end
-
 webylene = {
 	locate = function(self, path)
 		local path = cgilua.script_pdir
@@ -95,7 +83,23 @@ setmetatable(webylene, {
 
 setmetatable(_G, {__index = webylene}) -- so that people don't have to write webylene.this and webylene.that and so forth all the time.	
 
-----
+
+
+
+---- the following is dirty, and should be tucked away in some library or something. 
+
+do
+	local headers_sent = false
+	print = function(...)
+		if not headers_sent then
+			headers_sent = true
+			event:fire("sendHeaders")
+			cgilua.contentheader("text", "html")
+		end
+		cgilua.print(unpack(arg))
+	end
+end
+
 function cf(...)
 	local config = webylene.config
 	for i,v in ipairs(arg) do
@@ -120,6 +124,16 @@ table.locate = function(tbl, value)
 		end
 	end
 	return nil
+end
+
+table.length = function(tbl)
+	local size = 0
+	if type(tbl) == "table" then
+		for i,v in pairs(tbl) do
+			size = size + 1
+		end
+	end
+	return size
 end
 
 function table.mergeRecursivelyWith(t1, t2)

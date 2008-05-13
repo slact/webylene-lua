@@ -34,7 +34,10 @@ core = {
 	
 		ev:start("ready")
 			ev:fire("route")
-			--ev:fire("shutdown")	
+			
+			--this may be needed so that blank pages don't cause a 500. that is, at least output the header.
+			print ""
+			
 		ev:finish("ready")
 	end,
 	
