@@ -1,0 +1,9 @@
+Webylene
+
+objects/plugins
+
+Plugin objects go here.
+
+Plugin objects need not have object-matching filenames. (but it's good practice!)
+
+Plugins are loaded right after core objects.
