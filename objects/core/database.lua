@@ -30,6 +30,13 @@ database = {
 		end
 	end,
 	
+	firstRow = function(self, cur, mode)
+		local mode = mode or 'a'
+		local res = cur:fetch({}, mode)
+		cur:close()
+		return res
+	end,
+	
 	niceQuery = function(self, str)
 		local cur, err = self.conn:execute(str)
 		if not cur then
@@ -45,5 +52,14 @@ database = {
 	
 	esc = function(self, str)
 		return self.conn:escape(str)
+	end,
+	
+	date = function(self, time)
+		return os.date("%Y-%m-%d %X",time)
+	end,
+	
+	now = function(self)
+		local res = db:firstRow(db:query("SELECT NOW() as now;"))
+		return res.now
 	end
 }

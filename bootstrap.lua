@@ -60,6 +60,7 @@ do
 		local dirs = {"objects/core", "objects", "objects/plugins"} --where shall we look?
 		local f, path, result
 		for i,dir in pairs(dirs) do
+
 			path = self.path .. "/" .. dir .. "/" .. object_name .. ".lua"
 			f = io.open(path, "r")
 			if f then
@@ -90,13 +91,23 @@ setmetatable(_G, {__index = webylene}) -- so that people don't have to write web
 
 do
 	local headers_sent = false
+	local content={"text","html"}
 	print = function(...)
 		if not headers_sent then
 			headers_sent = true
 			event:fire("sendHeaders")
-			cgilua.contentheader("text", "html")
+			cgilua.contentheader(unpack(content))
 		end
 		cgilua.print(unpack(arg))
+	end
+	
+	set_content_type = function(arg)
+		if #arg == 1 then
+			local slash = assert(string.find(arg[1], "/", 0, true), "Invalid content-type, must be something/something-else.")
+			arg[2]=string.sub(arg[1], slash+1)
+			arg[1]=string.sub(arg[1], 0, slash-1)
+		end
+		content = arg
 	end
 end
 
@@ -117,6 +128,23 @@ table.contains = function(tbl, value)
 	return nil
 end
 
+table.icontains = function(tbl, value)
+	for i,v in ipairs(tbl) do
+		if v == value then
+			return true
+		end
+	end
+	return nil
+end
+
+table.keys = function(tbl)
+	local t= {}
+	for k, v in pairs(tbl) do
+		table.insert(t,k)
+	end
+	return t
+end
+
 table.locate = function(tbl, value)
 	for i,v in pairs(tbl) do
 		if v == value then
@@ -134,6 +162,29 @@ table.length = function(tbl)
 		end
 	end
 	return size
+end
+
+function table.mapInPlace(self, mapper)
+	for k,v in pairs(self) do
+		self[k] = mapper(k,v)
+	end
+	return self
+end
+
+function table.first(tbl)
+	local k, v = pairs(tbl)(tbl)
+	return v
+end
+
+function table.iContentsIdentical(t1, t2)
+	-- are the numericcally-indexed contents identical, regardless of key?
+	for i,v in ipairs(t2) do
+		if not t1.icontains(v) then return false end
+	end
+	for i,v in ipairs(t1) do
+		if not t2.icontains(v) then return false end
+	end
+	return true
 end
 
 function table.mergeRecursivelyWith(t1, t2)

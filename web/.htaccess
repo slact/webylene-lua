@@ -10,11 +10,6 @@ Options +FollowSymLinks +ExecCGI
 
 AddHandler fastcgi-script fcg fcgi fpl
 
-<Files php.ini>
-  Order deny,allow
-  Deny from All
-</Files>
-
 AddHandler lua-cgi .lp .lua
 Action lua-fcgi /cgi-bin/lua.fcgi
 Action lua-cgi /cgi-bin/lua.cgi
