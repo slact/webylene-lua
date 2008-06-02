@@ -16,7 +16,7 @@ session = {
 		
 		event:addAfterListener("configLoaded", function() 
 			self.config = cf("session")
-			if not self.config or self.config.disabled == "true" or self.config.enabled == "false" then return end --do we want to try a session?
+			if not self.config or self.config.disabled == true or self.config.enabled == false or self.config.disabled == "true" or self.config.enabled == "false" then return end --do we want to try a session?
 			local engine = self.storage[self.config.storage]
 			--retrieve session id or create new one
 			self.id = cgilua.cookies.get(self.config.name) or self:generateId()

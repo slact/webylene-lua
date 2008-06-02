@@ -92,13 +92,22 @@ setmetatable(_G, {__index = webylene}) -- so that people don't have to write web
 do
 	local headers_sent = false
 	local content={"text","html"}
-	print = function(...)
+	local header_check = function()
 		if not headers_sent then
 			headers_sent = true
 			event:fire("sendHeaders")
 			cgilua.contentheader(unpack(content))
 		end
+	end
+	
+	print = function(...)
+		header_check()
 		cgilua.print(unpack(arg))
+	end
+	
+	write = function(...)
+		header_check()
+		io.write(unpack(arg))
 	end
 	
 	set_content_type = function(arg)
@@ -202,18 +211,30 @@ end
 
 function table.mergeWith(t1, t2)
 	for i,v in pairs(t2) do
-		t1[i]=v
+		if type(i) == "number" then
+			if not table.icontains(t1, v) then
+				table.insert(t1, v)
+			end
+		else
+			t1[i] = v
+		end
 	end
 	return t1
 end
 
 function table.merge(t, u)
   local r = {}
-  for i, v in pairs(t) do
-    r[i] = v
-  end
   for i, v in pairs(u) do
     r[i] = v
+  end
+  for i, v in pairs(t) do
+	if type(i) == "number" then
+		if not table.icontains(r, v) then
+			table.insert(r, v)
+		end
+	else
+		r[i] = v
+	end
   end
   return r
 end

@@ -19,7 +19,7 @@ template = {
 				table.mergeWith(self.settings.templates, self.discover_templates(self))
 			end
 			
-			cgilua.lp.setoutfunc("print")
+			cgilua.lp.setoutfunc("write")
 		end)
 	end, 
 	
@@ -56,7 +56,7 @@ template = {
 		
 		local layout = self.layout or self.settings.layouts.default
 		
-		--settings templates at(templateName) print
+
 		local template_data = self.settings.templates[templateName].data
 		if template_data then
 			table.mergeWith(locals, templateData)
@@ -72,7 +72,6 @@ template = {
 				templateRefs = self.settings.templates[templateName][ref] or {}
 				layoutRefs   = self.settings.templates[layout][ref] or {}
 				locals[ref] = table.merge(templateRefs, layoutRefs)
-				
 			end
 			
 			--TODO: add recursive parent support. this might involve reworking this whole thing.
@@ -82,7 +81,7 @@ template = {
 	end,
 	
 	include = function(self, template, locals)
-		
+		--print(cgilua.lp.translate(io.open(webylene.path .. "/templates/" .. template.path, "r"):read("*all")))
 		cgilua.lp.include(webylene.path .. "/templates/" .. template.path, self:prepareLocals(locals))
 	end,
 	
