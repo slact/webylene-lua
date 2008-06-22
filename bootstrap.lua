@@ -1,9 +1,11 @@
+--we'll need this stuff right off the bat
 require "cgilua"
 require "lfs"
 
 webylene = {
+	--- where the crap is webylene running? this function finds the absolute path of the webylene root, based on the assumption that it was started from web/index.lua
 	locate = function(self, path)
-		local path = cgilua.script_pdir
+		local path = cgilua.script_pdir --there's the web/index.lua assumption. also, assumes that the server properly identifies script_pdir
 		local slash_byte = string.byte("/",1)
 		for i=#path-1, 1, -1 do   --i=path-1 to ignore trailing slash.
 			if path:byte(i) == slash_byte then
@@ -18,6 +20,11 @@ webylene = {
 	path = "",
 	config = {},
 	
+	--- import a lua chunk and load it as an index in the webylene table. 
+	-- @param file_chunk lua chunk, at least defining a table named object_name
+	-- @param object_name expected name of the imported object/table
+	--
+	-- upon successful chunk loading, [object_name]:init() is called.
 	importChunk = function(self, file_chunk, object_name)
 		if file_chunk == nil then return end 
 		
@@ -35,6 +42,8 @@ webylene = {
 		return nil
 	end,
 	
+	--- import contents of a file as webylene[object_name]
+	-- @see webylene.importChunk
 	importFile = function(self, file_path, object_name)
 		local object_name = object_name or extractFilename(file_path):sub(1, (-#".lua"-1))
 		--print("OBJ:" .. object_name .. " PATH:" .. file_path .. "\n" )
@@ -46,11 +55,19 @@ webylene = {
 			return result
 		end
 		return nil
+	end,
+	
+	--- load a library (random heap o' functions) from webylene root/lib/[lib_name].lua
+	loadlib = function(self, lib_name)
+		assert(loadfile(webylene.path .. "/lib/" .. lib_name .. ".lua"))()
 	end
 }
 
 do
 	local notFound = {}
+	
+	--- magic webylene importer. called whenever webylene.foo is nil, tries to load foo.lua from the folders listed below. 
+	--@see webylene.importFile
 	webylene.import = function(self, object_name)
 		if rawget(self, object_name) ~= nil then
 			return self.object_name
@@ -83,260 +100,6 @@ setmetatable(webylene, {
 })
 
 setmetatable(_G, {__index = webylene}) -- so that people don't have to write webylene.this and webylene.that and so forth all the time.	
-
-
-
-
----- the following is dirty, and should be tucked away in some library or something. 
-
-do
-	local headers_sent = false
-	local content={"text","html"}
-	local header_check = function()
-		if not headers_sent then
-			headers_sent = true
-			event:fire("sendHeaders")
-			cgilua.contentheader(unpack(content))
-		end
-	end
-	
-	print = function(...)
-		header_check()
-		cgilua.print(unpack(arg))
-	end
-	
-	write = function(...)
-		header_check()
-		io.write(unpack(arg))
-	end
-	
-	set_content_type = function(arg)
-		if #arg == 1 then
-			local slash = assert(string.find(arg[1], "/", 0, true), "Invalid content-type, must be something/something-else.")
-			arg[2]=string.sub(arg[1], slash+1)
-			arg[1]=string.sub(arg[1], 0, slash-1)
-		end
-		content = arg
-	end
-end
-
-function cf(...)
-	local config = webylene.config
-	for i,v in ipairs(arg) do
-		config = config[v]
-	end
-	return config
-end
-
-table.contains = function(tbl, value)
-	for i,v in pairs(tbl) do
-		if v == value then
-			return true
-		end
-	end
-	return nil
-end
-
-table.icontains = function(tbl, value)
-	for i,v in ipairs(tbl) do
-		if v == value then
-			return true
-		end
-	end
-	return nil
-end
-
-table.keys = function(tbl)
-	local t= {}
-	for k, v in pairs(tbl) do
-		table.insert(t,k)
-	end
-	return t
-end
-
-table.locate = function(tbl, value)
-	for i,v in pairs(tbl) do
-		if v == value then
-			return i
-		end
-	end
-	return nil
-end
-
-table.length = function(tbl)
-	local size = 0
-	if type(tbl) == "table" then
-		for i,v in pairs(tbl) do
-			size = size + 1
-		end
-	end
-	return size
-end
-
-function table.mapInPlace(self, mapper)
-	for k,v in pairs(self) do
-		self[k] = mapper(k,v)
-	end
-	return self
-end
-
-function table.first(tbl)
-	local k, v = pairs(tbl)(tbl)
-	return v
-end
-
-function table.iContentsIdentical(t1, t2)
-	-- are the numericcally-indexed contents identical, regardless of key?
-	for i,v in ipairs(t2) do
-		if not t1.icontains(v) then return false end
-	end
-	for i,v in ipairs(t1) do
-		if not t2.icontains(v) then return false end
-	end
-	return true
-end
-
-function table.mergeRecursivelyWith(t1, t2)
-	for i,v in pairs(t2 or {}) do
-		if type(i) == "number" then
-			table.insert(t1, v)
-		elseif type(v) == "table" and type(t1[i]) == "table" then
-			t1[i] = table.mergeRecursivelyWith(t1[i], v)
-		else
-			t1[i] = v
-		end
-	end
-	return t1
-end
-
-function table.mergeWith(t1, t2)
-	for i,v in pairs(t2) do
-		if type(i) == "number" then
-			if not table.icontains(t1, v) then
-				table.insert(t1, v)
-			end
-		else
-			t1[i] = v
-		end
-	end
-	return t1
-end
-
-function table.merge(t, u)
-  local r = {}
-  for i, v in pairs(u) do
-    r[i] = v
-  end
-  for i, v in pairs(t) do
-	if type(i) == "number" then
-		if not table.icontains(r, v) then
-			table.insert(r, v)
-		end
-	else
-		r[i] = v
-	end
-  end
-  return r
-end
-
-function table.key(t,k)
-	return t[k]
-end
-
-
-function extractFilename(path)
-	local i = #path
-	while i > 0 and path[i] ~= "/" do i = i-1 end
-	return path:sub(i)
-end
-
-function table.isarray(t)
-	for i,v in pairs(t) do
-		if(type(i) ~= "number") then
-			return false
-		end
-	end
-	return true
-end
-
-function table.show(t, name, indent)
-   local cart     -- a container
-   local autoref  -- for self references
-
-   --[[ counts the number of elements in a table
-   local function tablecount(t)
-      local n = 0
-      for _, _ in pairs(t) do n = n+1 end
-      return n
-   end
-   ]]
-   -- (RiciLake) returns true if the table is empty
-   local function isemptytable(t) return next(t) == nil end
-
-   local function basicSerialize (o)
-      local so = tostring(o)
-      if type(o) == "function" then
-         local info = debug.getinfo(o, "S")
-         -- info.name is nil because o is not a calling level
-         if info.what == "C" then
-            return string.format("%q", so .. ", C function")
-         else 
-            -- the information is defined through lines
-            return string.format("%q", so .. ", defined in (" ..
-                info.linedefined .. "-" .. info.lastlinedefined ..
-                ")" .. info.source)
-         end
-      elseif type(o) == "number" then
-         return so
-      elseif type(o) == "boolean" then
-		 return so
-	  else
-         return string.format("%q", so)
-      end
-   end
-
-   local function addtocart (value, name, indent, saved, field)
-      indent = indent or ""
-      saved = saved or {}
-      field = field or name
-
-      cart = cart .. indent .. field
-
-      if type(value) ~= "table" then
-         cart = cart .. " = " .. basicSerialize(value) .. ";\n"
-      else
-         if saved[value] then
-            cart = cart .. " = {}; -- " .. saved[value] 
-                        .. " (self reference)\n"
-            autoref = autoref ..  name .. " = " .. saved[value] .. ";\n"
-         else
-            saved[value] = name
-            --if tablecount(value) == 0 then
-            if isemptytable(value) then
-               cart = cart .. " = {};\n"
-            else
-               cart = cart .. " = {\n"
-               for k, v in pairs(value) do
-                  k = basicSerialize(k)
-                  local fname = string.format("%s[%s]", name, k)
-                  field = string.format("[%s]", k)
-                  -- three spaces between levels
-                  addtocart(v, fname, indent .. "   ", saved, field)
-               end
-               cart = cart .. indent .. "};\n"
-            end
-         end
-      end
-   end
-
-   name = name or "__unnamed__"
-   if type(t) ~= "table" then
-      return name .. " = " .. basicSerialize(t)
-   end
-   cart, autoref = "", ""
-   addtocart(t, name, indent)
-   return cart .. autoref
-end
 
 --where am i?
 assert(webylene:locate())

@@ -4,6 +4,8 @@ require "cgilua"
 core = {
 	init = function(self)
 
+		webylene:loadlib("utils") -- we need all the random junk in here
+		
 		local ev = webylene.event
 		--where oh where shall I put this?
 		
@@ -71,6 +73,7 @@ core = {
 		return self
 	end,
 	
+	--- load all objects in lua files in relativePath
 	loadObjects = function(self, relativePath)
 		local absolutePath = webylene.path .. "/" .. relativePath
 		local webylene = webylene -- so that we don't have to go metatable-hopping all the time

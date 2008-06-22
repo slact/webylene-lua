@@ -16,12 +16,21 @@ router = {
 		end)
 	end,
 	
+	--- parse a uri into its parts. returns a table with indices:
+	-- scheme	= protocol used (http, https, ftp, etc)
+	-- userinfo	= username:password
+	-- hostname	= hostname or ip address of server
+	-- port		= port, if any specified
+	-- path		= path part of the url, excluding the querystring (i.e. the path part of http://google.com/foo/bar?huh#1 would be /foo/bar
+	-- query	= query string, excluding leading ? character
+	-- fragment	= part of url after the # character
 	parseurl = function(self, url) 
 		local url_rex = rex.new("(?P<scheme>(?:http|ftp)s?)://(?:(?P<userinfo>\w+(?::\w+)?)@)?(?P<hostname>[^/:]+)(:(?P<port>[0-9]+))?(?P<path>/[^?#]*)?(?:\\?(?P<query>[^#]*))?(?:#(?P<fragment>.*))?")
 		local res = {url_rex:tfind(url)}
 		return res[3]
 	end,
 
+	--- pergorm the routing, besed on the uri given
 	route = function(self, uri)
 		local url = self:parseurl(uri).path
 		for i,route in pairs(self.settings.routes) do
@@ -34,10 +43,12 @@ router = {
 		self:route404()
 	end,
 	
+	--- route to the 404 page. this gets its own function because it might be considered a default -- no route, so take Route 404.
 	route404 = function(self)
 		self:arriveAtDestination(self.parser:parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
 	end,
 	
+	--- stuff to do upon finishing the routing.
 	arriveAtDestination = function(self, route)
 		table.mergeWith(cgilua.REQUEST, route.destination.param) --add route's predefined params to the REQUEST table
 		self.currentRoute = route
@@ -48,8 +59,8 @@ router = {
 		dofile(webylene.path .. "/" .. self.settings.destinations.location .. "/" .. route.destination.script .. self.settings.destinations.extension)
 	end,
 	
+	--- see if the url matches the path given
 	walkPath = function(self, url, path)
-	--see if the path matches
 		local match = { url = false, param = true }
 		
 		--TODO: this whole thing's kind of ugly. prettify later.
@@ -88,11 +99,12 @@ router = {
 		return (match.url and match.param)
 	end,
 
-	
+	--- is the urlPattern intended to be  a simple match, or a regular expression?
 	oughtToRegex = function(self, urlPattern)
 		return urlPattern:sub(1,2) ~= "|"
 	end,
 	
+	--- parse a route. a bit tricky, since the route spec is pretty flexible
 	parser = {
 		knownParams = {"title", "ref"},
 		
@@ -104,7 +116,7 @@ router = {
 			elseif type(contents) == "string" or type(contents) == "number" then
 				contents = {script=contents, param={}}
 			else 
-				error("Couldn't parse route destination: expected to be a Map or Sequence, but was a "  .. type(contents))
+				error("Couldn't parse route destination: expected to be a table or string, but was a "  .. type(contents))
 			end
 			return contents
 		end,
@@ -115,13 +127,13 @@ router = {
 			elseif type(url) == "table" then
 				return url
 			else
-				error("Couldn't parse route path URL: expected a Sequence or a List, found " .. type(url) .. ". Check your config/routes.yaml")
+				error("Couldn't parse route path URL: expected a table, found a " .. type(url) .. ". Check config/routes.yaml")
 			end
 		end,
 		
 		path = function(self, contents)
 			if type(contents) == "table" and not table.isarray(contents) then
-				assert(contents.url, "Couldn't parse route path: path explicitly stated, but no url given")	--no url. can't do anything about that, error out.
+				assert(contents.url, "Couldn't parse route path: path explicitly stated, but no url given. Check config/routes.yaml")	--no url. can't do anything about that, error out.
 				contents.url=self:pathUrl(contents.url)
 				contents.param = contents.param or {}
 			else  --it's a shorthand
@@ -131,7 +143,7 @@ router = {
 		end,
 		
 		param = function(self, contents)
-			assert(type(contents) == "table", "Couldn't make sense of params")
+			assert(type(contents) == "table", "Couldn't make sense of params. Check config/routes'yaml")
 			return contents
 		end,
 			
@@ -148,7 +160,7 @@ router = {
 		
 		parseRoute = function(self, contents)
 			local route = {}
-			assert(type(contents) == "table", "expected route to be a table, found a " .. type(contents) .. " instead")
+			assert(type(contents) == "table", "expected route to be a table, found a " .. type(contents) .. " instead. Check config/routes.yaml")
 			local baseParam = self:extractBaseParam(contents)
 			local key, val = next(contents)
 			route.path = self:path(contents.path or val) --path or first value in contents

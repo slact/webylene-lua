@@ -44,11 +44,14 @@ template = {
 		return discovered
 	end, 
 	
+	--- output a template with environment [locals]. 
+	-- @param templateName name of the template to be output
 	out = function(self, templateName, locals)
 		locals = locals or {}
 		print(self:pageOut(templateName, locals))
 	end,
 	
+	--- template output workhorse. mostly for internal use only. 
 	pageOut = function(self, templateName, locals)
 		assert(self.settings.templates[templateName], "no such template <" .. templateName .. ">")
 		
