@@ -128,6 +128,12 @@ function table.first(tbl)
 	return v
 end
 
+--- return the first index of table tbl, as found with pairs()
+function table.firstindex(tbl)
+	local k, v = pairs(tbl)(tbl)
+	return k
+end
+
 --- are the numericcally-indexed contents identical, regardless of key?
 -- O(~n)
 function table.iContentsIdentical(t1, t2)
@@ -287,4 +293,4 @@ function table.show(t, name, indent)
    cart, autoref = "", ""
    addtocart(t, name, indent)
    return cart .. autoref
-end
+end 

@@ -19,7 +19,7 @@ session = {
 			if not self.config or self.config.disabled == true or self.config.enabled == false or self.config.disabled == "true" or self.config.enabled == "false" then return end --do we want to try a session?
 			local engine = self.storage[self.config.storage]
 			--retrieve session id or create new one
-			self.id = cgilua.cookies.get(self.config.name) or self:generateId()
+			self.id = cgilua.cookies.get(self.config.name) or self:generate_id()
 			
 			event:addAfterListener("loadCore", function()
 				engine:init()
@@ -52,9 +52,11 @@ session = {
 	
 	end,
 	
-	changeId = function(self)
+	
+	--- change the session id
+	change_id = function(self)
 		--assumes engine's already been initialized.
-		local new_id = self:generateId()
+		local new_id = self:generate_id()
 		local engine = self.storage[self.config.storage]
 		local stored_session = engine:read(self.id)
 		engine:delete(self.id)
@@ -62,7 +64,8 @@ session = {
 		self.id = new_id
 	end,
 		
-	generateId = function(self, bits)
+	--- generate the session id with [bits] or 256 bits of entropy. presently reads /dev/urandom for randomness
+	generate_id = function(self, bits)
 		bits = bits or 256
 		local res = sha1.digest(io.open("/dev/urandom", "r"):read(bits/16))
 		return res
@@ -71,9 +74,12 @@ session = {
 	data = {}
 }
 
+
 do
 	local session = session
+	--- these be different session storage engines
 	session.storage = {
+		---database storage engine
 		database = {
 			init = function(self)
 				--assumes an established connection
@@ -108,6 +114,7 @@ do
 				assert(self.db:query("DELETE FROM " .. self.table .. " WHERE id='" .. self.db:esc(id) .. "';"))
 				return self
 			end,
+			
 			gc = function(self, max_lifetime)
 				assert(self.db:query("DELETE FROM " .. self.table .. " WHERE `timestamp` < from_unixtime(UNIX_TIMESTAMP() - " .. max_lifetime .. ");"))
 				return self

@@ -1,4 +1,5 @@
 require "logging.file"
+--- just a silly wrapper for the kepler file logger
 logger = 
 {
 	init = function(self)

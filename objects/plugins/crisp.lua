@@ -1,5 +1,5 @@
 --- an object to access crisps
--- a crisp is a variable that persists for the next request, and then gets removed -- unless explicitly prolonged
+-- a crisp is a variable that persists until the next request from the owner of a given session, and then gets removed -- unless explicitly prolonged
 crisp = {
 	init = function(self)
 		event:addAfterListener("readSession", function() session.data.crisps = session.data.crisps or {}; end)
@@ -43,7 +43,7 @@ crisp = {
 		end
 	end,
 	
-	 --- renew crisp -- make sure it won't get erased next time	
+	--- renew crisp -- make sure it won't get erased next time	
 	renew = function(self, name, val)
 		local crisp_table = self.crisps[name]
 		if not crisp_table then
@@ -66,7 +66,6 @@ crisp = {
 	end,
 	
 	--- run in bootstrap to clean the crisps.
-		  	 
 	clean = function(self)
 		if not self.crisps then self.crisps = {} end
 		local crisps = self.crisps

@@ -1,5 +1,4 @@
 --- settings taken from the database. useful for customizeable stuff.
-
 do
 	local cached = {}
 	
