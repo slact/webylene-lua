@@ -134,7 +134,18 @@ function table.firstindex(tbl)
 	return k
 end
 
---- are the numericcally-indexed contents identical, regardless of key?
+--- reverses numeric index positions
+function table.reverse(tbl)
+	local len, half_len = #tbl, #tbl/2
+	local i, val = 1, nil
+	while (i <= half_len) do
+		i, val = next(tbl, i)
+		tbl[i], tbl[len+1-i] = tbl[len+1-i], tbl[i]
+	end
+	return tbl
+end
+
+--- are the numerically-indexed contents identical, regardless of key?
 -- O(~n)
 function table.iContentsIdentical(t1, t2)
 	for i,v in ipairs(t2) do

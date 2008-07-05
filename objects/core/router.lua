@@ -161,8 +161,8 @@ router = {
 		parseRoute = function(self, contents)
 			local route = {}
 			assert(type(contents) == "table", "expected route to be a table, found a " .. type(contents) .. " instead. Check config/routes.yaml")
-			local baseParam = self:extractBaseParam(contents)
-			local key, val = next(contents)
+			local key, val = next(contents) -- key may be the route target, or nothing important. 
+			local baseParam = self:extractBaseParam((table.length(contents) == 1) and val or contents)
 			route.path = self:path(contents.path or val) --path or first value in contents
 			route.destination = self:destination(contents.destination or key) --destination or first key in contents
 			route.param = self:param(table.mergeRecursivelyWith(baseParam, contents.param))

@@ -105,6 +105,7 @@ template = {
 		end,
 		
 		title = function()
+			--print(table.show(webylene.router.currentRoute))
 			return webylene.router.currentRoute.param.title
 		end,
 		
