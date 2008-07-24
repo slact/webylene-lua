@@ -25,12 +25,12 @@ router = {
 	-- query	= query string, excluding leading ? character
 	-- fragment	= part of url after the # character
 	parseurl = function(self, url) 
-		local url_rex = rex.new("(?P<scheme>(?:http|ftp)s?)://(?:(?P<userinfo>\w+(?::\w+)?)@)?(?P<hostname>[^/:]+)(:(?P<port>[0-9]+))?(?P<path>/[^?#]*)?(?:\\?(?P<query>[^#]*))?(?:#(?P<fragment>.*))?")
+		local url_rex = rex.new("((?P<scheme>(?:http|ftp)s?)://(?:(?P<userinfo>\w+(?::\w+)?)@)?(?P<hostname>[^/:]+)(:(?P<port>[0-9]+))?)?(?P<path>/[^?#]*)?(?:\\?(?P<query>[^#]*))?(?:#(?P<fragment>.*))?")
 		local res = {url_rex:tfind(url)}
 		return res[3]
 	end,
 
-	--- pergorm the routing, besed on the uri given
+	--- perform the routing, besed on the uri given
 	route = function(self, uri)
 		local url = self:parseurl(uri).path
 		for i,route in pairs(self.settings.routes) do

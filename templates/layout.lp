@@ -14,7 +14,7 @@
 			<link rel="stylesheet" type="text/css" href="/css/<%=stylesheet%>" />
 		<%end
 	end%>
-	<title><%=title()%></title>
+	<title><%=pageTitle()%></title>
 </head>
 <body>
 	<%myChild()%>

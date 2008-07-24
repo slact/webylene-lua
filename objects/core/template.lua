@@ -104,7 +104,7 @@ template = {
 			webylene.template:include(child, locals)
 		end,
 		
-		title = function()
+		pageTitle = function()
 			--print(table.show(webylene.router.currentRoute))
 			return webylene.router.currentRoute.param.title
 		end,

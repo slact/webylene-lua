@@ -48,6 +48,16 @@ database = {
 		end
 	end,
 	
+	--- returns a table containing all result rows for a given cursor
+	results = function(self, cur)
+		local res = {}
+		for row in self:rows(cur) do
+			table.insert(res, row)
+		end
+		return res
+	end,
+	
+	
 	--- returns first row of query result cursor.
 	-- behavior undefined if cur isn't a valid database result cursor
 	firstRow = function(self, cur, mode)

@@ -61,7 +61,7 @@ do
 			if not self:active(event) then
 				error("tried finishing event <" .. event .. "> but it's not active and hadn't been started.")
 			end
-			table.remove(activeEvents, table.locate(activeEvents, event))
+			table.remove(activeEvents, table.find(activeEvents, event))
 			table.insert(finishedEvents, event)
 			for i, event_handler in pairs(listeners[event].finish) do --yep.
 				event_handler()

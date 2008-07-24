@@ -42,6 +42,12 @@ function cf(...)
 	return config
 end
 
+
+function math.round(num, idp)
+	local mult = 10^(idp or 0)
+	return math.floor(num * mult + 0.5) / mult
+end
+
 --- does tbl contain value?
 table.contains = function(tbl, value)
 	for i,v in pairs(tbl) do
@@ -50,6 +56,43 @@ table.contains = function(tbl, value)
 		end
 	end
 	return nil
+end
+
+--- does the table contain more than [number] elements?
+table.longer_than = function(tbl, number)
+	local len = 0
+	for i, v in pairs(tbl) do
+		if len > number then
+			return true
+		end
+	end
+	return false
+end
+
+--- reduce table to one value
+-- callback(previous_value, current_value, index, table)
+table.reduce = function(tbl, callback, initial_value)
+	local i, prev
+	if not initial_value then
+		i, prev = next(tbl)
+	else
+		i, prev = nil, initial_value
+	end
+	local cur
+	i, cur = next(tbl, i)
+	while i do
+		prev = callback(prev, cur, i, tbl)
+		i, cur = next(tbl, i)
+	end
+	return prev
+end
+
+--- calls callback function once for each element in the table
+-- callback(value, index, table)
+table.each = function(tbl, callback)
+	for i, v in pairs(tbl) do
+		callback(v, i, tbl)
+	end
 end
 
 --- does tbl contain value, and, if so, is i s.t. tbl[i]==value numeric?
@@ -72,7 +115,7 @@ table.keys = function(tbl)
 end
 
 ---return index x s.t. tbl[x]==value, or nil if no such x exists.
-table.locate = function(tbl, value)
+table.find = function(tbl, value)
 	for i,v in pairs(tbl) do
 		if v == value then
 			return i
@@ -100,11 +143,20 @@ end
 -- mapper function is of the form mapper(key, value)
 -- returns tbl
 -- O(n)
-function table.mapInPlace(tbl, mapper)
+function table.map_in_place(tbl, mapper)
 	for k,v in pairs(tbl) do
 		tbl[k] = mapper(k,v)
 	end
 	return tbl
+end
+
+--- copy a table. does _not_ copy the metatable, but it does set the copy's metatable to theoriginal's
+function table.copy(tbl)
+	local c = {}
+	for i, v in pairs(tbl) do
+		c[i]=v
+	end
+	return c
 end
 
 --- perform function mapper on each element of table tbl.
@@ -124,30 +176,43 @@ end
 -- undefined functionality for non-table values of tbl
 -- O(1)
 function table.first(tbl)
-	local k, v = pairs(tbl)(tbl)
+	local k, v = next(tbl)
 	return v
 end
 
 --- return the first index of table tbl, as found with pairs()
 function table.firstindex(tbl)
-	local k, v = pairs(tbl)(tbl)
+	local k, v = next(tbl)
 	return k
 end
 
 --- reverses numeric index positions
 function table.reverse(tbl)
-	local len, half_len = #tbl, #tbl/2
-	local i, val = 1, nil
-	while (i <= half_len) do
-		i, val = next(tbl, i)
+	local len, half_len = #tbl, math.ceil(#tbl/2)
+	for i, val in ipairs(tbl) do
+		if i > half_len then break end
 		tbl[i], tbl[len+1-i] = tbl[len+1-i], tbl[i]
 	end
 	return tbl
 end
 
+-- returns a slice of the table with the start and end being the numeric keys beginning and End. if End is not specified, assumes #tbl
+function table.slice(tbl, beginning, End)
+	local ret = {}
+	End = End or #tbl
+	if not start then return tbl end
+	if start < 0 then start = #tbl - start end
+	local i, val = start, nil
+	while i < End do
+		table.insert(ret, tbl[i])
+		i, val = next(tbl, i)
+	end
+	return ret
+end
+
 --- are the numerically-indexed contents identical, regardless of key?
 -- O(~n)
-function table.iContentsIdentical(t1, t2)
+function table.icontentsidentical(t1, t2)
 	for i,v in ipairs(t2) do
 		if not t1.icontains(v) then return false end
 	end
@@ -202,10 +267,6 @@ function table.merge(t, u)
 	end
   end
   return r
-end
-
-function table.key(t,k)
-	return t[k]
 end
 
 --- extract filename from a path string. assumes unixish forward slashes.
