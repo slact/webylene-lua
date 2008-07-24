@@ -196,6 +196,15 @@ function table.reverse(tbl)
 	return tbl
 end
 
+--- returns a new table with keys and values flipped
+function table.flipped(tbl)
+	local flippy = {}
+	for i, v in pairs(tbl) do
+		flippy[v]=i
+	end
+	return flippy
+end
+
 -- returns a slice of the table with the start and end being the numeric keys beginning and End. if End is not specified, assumes #tbl
 function table.slice(tbl, beginning, End)
 	local ret = {}
@@ -366,3 +375,119 @@ function table.show(t, name, indent)
    addtocart(t, name, indent)
    return cart .. autoref
 end 
+
+
+do
+	local entities={
+		['¡'] = '&iexcl;' ,
+		['¢'] = '&cent;' ,
+		['£'] = '&pound;' ,
+		['¤'] = '&curren;' ,
+		['¥'] = '&yen;' ,
+		['¦'] = '&brvbar;' ,
+		['§'] = '&sect;' ,
+		['¨'] = '&uml;' ,
+		['©'] = '&copy;' ,
+		['ª'] = '&ordf;' ,
+		['«'] = '&laquo;' ,
+		['¬'] = '&not;' ,
+		['­'] = '&shy;' ,
+		['®'] = '&reg;' ,
+		['¯'] = '&macr;' ,
+		['°'] = '&deg;' ,
+		['±'] = '&plusmn;' ,
+		['²'] = '&sup2;' ,
+		['³'] = '&sup3;' ,
+		['´'] = '&acute;' ,
+		['µ'] = '&micro;' ,
+		['¶'] = '&para;' ,
+		['·'] = '&middot;' ,
+		['¸'] = '&cedil;' ,
+		['¹'] = '&sup1;' ,
+		['º'] = '&ordm;' ,
+		['»'] = '&raquo;' ,
+		['¼'] = '&frac14;' ,
+		['½'] = '&frac12;' ,
+		['¾'] = '&frac34;' ,
+		['¿'] = '&iquest;' ,
+		['À'] = '&Agrave;' ,
+		['Á'] = '&Aacute;' ,
+		['Â'] = '&Acirc;' ,
+		['Ã'] = '&Atilde;' ,
+		['Ä'] = '&Auml;' ,
+		['Å'] = '&Aring;' ,
+		['Æ'] = '&AElig;' ,
+		['Ç'] = '&Ccedil;' ,
+		['È'] = '&Egrave;' ,
+		['É'] = '&Eacute;' ,
+		['Ê'] = '&Ecirc;' ,
+		['Ë'] = '&Euml;' ,
+		['Ì'] = '&Igrave;' ,
+		['Í'] = '&Iacute;' ,
+		['Î'] = '&Icirc;' ,
+		['Ï'] = '&Iuml;' ,
+		['Ð'] = '&ETH;' ,
+		['Ñ'] = '&Ntilde;' ,
+		['Ò'] = '&Ograve;' ,
+		['Ó'] = '&Oacute;' ,
+		['Ô'] = '&Ocirc;' ,
+		['Õ'] = '&Otilde;' ,
+		['Ö'] = '&Ouml;' ,
+		['×'] = '&times;' ,
+		['Ø'] = '&Oslash;' ,
+		['Ù'] = '&Ugrave;' ,
+		['Ú'] = '&Uacute;' ,
+		['Û'] = '&Ucirc;' ,
+		['Ü'] = '&Uuml;' ,
+		['Ý'] = '&Yacute;' ,
+		['Þ'] = '&THORN;' ,
+		['ß'] = '&szlig;' ,
+		['à'] = '&agrave;' ,
+		['á'] = '&aacute;' ,
+		['â'] = '&acirc;' ,
+		['ã'] = '&atilde;' ,
+		['ä'] = '&auml;' ,
+		['å'] = '&aring;' ,
+		['æ'] = '&aelig;' ,
+		['ç'] = '&ccedil;' ,
+		['è'] = '&egrave;' ,
+		['é'] = '&eacute;' ,
+		['ê'] = '&ecirc;' ,
+		['ë'] = '&euml;' ,
+		['ì'] = '&igrave;' ,
+		['í'] = '&iacute;' ,
+		['î'] = '&icirc;' ,
+		['ï'] = '&iuml;' ,
+		['ð'] = '&eth;' ,
+		['ñ'] = '&ntilde;' ,
+		['ò'] = '&ograve;' ,
+		['ó'] = '&oacute;' ,
+		['ô'] = '&ocirc;' ,
+		['õ'] = '&otilde;' ,
+		['ö'] = '&ouml;' ,
+		['÷'] = '&divide;' ,
+		['ø'] = '&oslash;' ,
+		['ù'] = '&ugrave;' ,
+		['ú'] = '&uacute;' ,
+		['û'] = '&ucirc;' ,
+		['ü'] = '&uuml;' ,
+		['ý'] = '&yacute;' ,
+		['þ'] = '&thorn;' ,
+		['ÿ'] = '&yuml;' ,
+		['"'] = '&quot;' ,
+		["'"] = '&#39;' ,
+		['<'] = '&lt;' ,
+		['>'] = '&gt;' ,
+		['&'] = '&amp;'
+	}
+	
+	local unentities = table.flipped(entities)
+
+	htmlentities = function(str) --ascii only, it seems...
+		return string.gsub(str, '(.)', entities)
+	end
+	
+	htmlunentities = function(str)
+		return string.gsub(str, '(&[^;];)', unentities)
+	end
+end

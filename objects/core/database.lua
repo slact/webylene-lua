@@ -22,6 +22,8 @@ database = {
 		end)
 	end,
 	
+	
+	
 	--- perform an SQL query. returns a cursor for SELECT queries, number of rows touched for all other queries,(nil, error) on error.
 	-- @param str query
 	query = function(self, str)
@@ -96,5 +98,17 @@ database = {
 	now = function(self)
 		local res = db:firstRow(db:query("SELECT NOW() as now;"))
 		return res.now
+	end,
+	
+	commit = function(self)
+		return self.conn:commit()
+	end,
+	
+	setautocommit = function(self, bool)
+		return self.conn:setautocommit(bool)
+	end,
+	
+	rollback = function(self)
+		return self.conn:rollback()
 	end
 }
