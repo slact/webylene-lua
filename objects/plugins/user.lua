@@ -50,6 +50,7 @@ user = {
 		end
 		event:fire("logout")
 		session.data.user = nil
+		self.data = nil
 		return self
 	end,
 	
@@ -68,3 +69,5 @@ user = {
 		return sha1.digest(plaintext .. (self.config.password_salt or ""))
 	end
 }
+
+user.exists = user.find
