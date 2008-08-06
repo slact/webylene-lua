@@ -2,6 +2,12 @@ require "cgilua.cookies"
 require "cgilua.serialize"
 require "sha1"
 
+local serialized = function(input)
+	input = input or {}
+	local buf = {}
+	cgilua.serialize(input, function(s) table.insert(buf, s) end)
+	return table.concat(buf, "")
+end
 
 --- session managing object
 -- attaches itself to some core and sendHeaders events
@@ -36,9 +42,7 @@ session = {
 			event:addFinishListener("ready", function()
 				local buf = {}
 				event:start("writeSession")
-				cgilua.serialize(self.data, function(s) table.insert(buf, s) end)
-				buf = table.concat(buf, "")
-				engine:write(self.id, buf)
+				engine:write(self.id, serialized(self.data))
 				event:finish("writeSession")
 				
 				math.randomseed(os.time())
@@ -65,7 +69,7 @@ session = {
 		local engine = self.storage[self.config.storage]
 		local stored_session = engine:read(self.id)
 		engine:delete(self.id)
-		engine:write(new_id, stored_session)
+		engine:write(new_id, serialized(stored_session))
 		self.id = new_id
 	end,
 		
