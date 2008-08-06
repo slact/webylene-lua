@@ -90,14 +90,27 @@ database = {
 	end,
 	
 	--- format a time to sql-standard date format
-	date = function(self, time)
-		return os.date("%Y-%m-%d %X",time)
+	date = function(self, timestamp)
+		return os.date("%Y-%m-%d %X",timestamp)
+	end,
+	
+	--- produce a unix timestamp from sql-standard date stamp
+	timestamp = function(self, datestring)
+		-- yyyy-mm-dd hh:mm:ss
+		if not datestring or datestring == "" then 
+			return nil 
+		end
+		return tonumber(self:firstRow(self:query("SELECT UNIX_TIMESTAMP('" .. self:esc(datestring).. "') as stamp;"))["stamp"])
 	end,
 	
 	--- asks the database what time it is. 
 	now = function(self)
-		local res = db:firstRow(db:query("SELECT NOW() as now;"))
-		return res.now
+		return self:firstRow(self:query("SELECT NOW() as now;"))["now"]
+	end,
+	
+	--- asks the database what Unix-time it is. 
+	unix_timestamp = function(self)
+		return tonumber(self:firstRow(self:query("SELECT UNIX_TIMESTAMP() as now;"))["now"])
 	end,
 	
 	commit = function(self)

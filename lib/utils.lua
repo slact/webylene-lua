@@ -24,12 +24,15 @@ do
 	
 	---self-explanatory
 	set_content_type = function(arg)
-		if #arg == 1 then
-			local slash = assert(string.find(arg[1], "/", 0, true), "Invalid content-type, must be something/something-else.")
-			arg[2]=string.sub(arg[1], slash+1)
-			arg[1]=string.sub(arg[1], 0, slash-1)
+		if type(arg) == "string" then
+			local slash = assert(string.find(arg, "/", 0, true), "Invalid content-type, must be something/something-else.")
+			content[2]=string.sub(arg, slash+1)
+			content[1]=string.sub(arg, 0, slash-1)
+		elseif type(arg) == "table" and table.length(arg) == 2 then
+			content = arg
+		else
+			error("unknown content-type format...")
 		end
-		content = arg
 	end
 end
 
@@ -376,118 +379,85 @@ function table.show(t, name, indent)
    return cart .. autoref
 end 
 
+---reversed ipairs
+table.irpairs = function(tbl)
+	local len = #tbl
+	return function(tbl, index)
+		index = index or #tbl
+		return ((index ~= 1 and tbl[index-1]) and index-1 or nil), tbl[index]
+	end
+end
 
 do
 	local entities={
-		['¡'] = '&iexcl;' ,
-		['¢'] = '&cent;' ,
-		['£'] = '&pound;' ,
-		['¤'] = '&curren;' ,
-		['¥'] = '&yen;' ,
-		['¦'] = '&brvbar;' ,
-		['§'] = '&sect;' ,
-		['¨'] = '&uml;' ,
-		['©'] = '&copy;' ,
-		['ª'] = '&ordf;' ,
-		['«'] = '&laquo;' ,
-		['¬'] = '&not;' ,
-		['­'] = '&shy;' ,
-		['®'] = '&reg;' ,
-		['¯'] = '&macr;' ,
-		['°'] = '&deg;' ,
-		['±'] = '&plusmn;' ,
-		['²'] = '&sup2;' ,
-		['³'] = '&sup3;' ,
-		['´'] = '&acute;' ,
-		['µ'] = '&micro;' ,
-		['¶'] = '&para;' ,
-		['·'] = '&middot;' ,
-		['¸'] = '&cedil;' ,
-		['¹'] = '&sup1;' ,
-		['º'] = '&ordm;' ,
-		['»'] = '&raquo;' ,
-		['¼'] = '&frac14;' ,
-		['½'] = '&frac12;' ,
-		['¾'] = '&frac34;' ,
-		['¿'] = '&iquest;' ,
-		['À'] = '&Agrave;' ,
-		['Á'] = '&Aacute;' ,
-		['Â'] = '&Acirc;' ,
-		['Ã'] = '&Atilde;' ,
-		['Ä'] = '&Auml;' ,
-		['Å'] = '&Aring;' ,
-		['Æ'] = '&AElig;' ,
-		['Ç'] = '&Ccedil;' ,
-		['È'] = '&Egrave;' ,
-		['É'] = '&Eacute;' ,
-		['Ê'] = '&Ecirc;' ,
-		['Ë'] = '&Euml;' ,
-		['Ì'] = '&Igrave;' ,
-		['Í'] = '&Iacute;' ,
-		['Î'] = '&Icirc;' ,
-		['Ï'] = '&Iuml;' ,
-		['Ð'] = '&ETH;' ,
-		['Ñ'] = '&Ntilde;' ,
-		['Ò'] = '&Ograve;' ,
-		['Ó'] = '&Oacute;' ,
-		['Ô'] = '&Ocirc;' ,
-		['Õ'] = '&Otilde;' ,
-		['Ö'] = '&Ouml;' ,
-		['×'] = '&times;' ,
-		['Ø'] = '&Oslash;' ,
-		['Ù'] = '&Ugrave;' ,
-		['Ú'] = '&Uacute;' ,
-		['Û'] = '&Ucirc;' ,
-		['Ü'] = '&Uuml;' ,
-		['Ý'] = '&Yacute;' ,
-		['Þ'] = '&THORN;' ,
-		['ß'] = '&szlig;' ,
-		['à'] = '&agrave;' ,
-		['á'] = '&aacute;' ,
-		['â'] = '&acirc;' ,
-		['ã'] = '&atilde;' ,
-		['ä'] = '&auml;' ,
-		['å'] = '&aring;' ,
-		['æ'] = '&aelig;' ,
-		['ç'] = '&ccedil;' ,
-		['è'] = '&egrave;' ,
-		['é'] = '&eacute;' ,
-		['ê'] = '&ecirc;' ,
-		['ë'] = '&euml;' ,
-		['ì'] = '&igrave;' ,
-		['í'] = '&iacute;' ,
-		['î'] = '&icirc;' ,
-		['ï'] = '&iuml;' ,
-		['ð'] = '&eth;' ,
-		['ñ'] = '&ntilde;' ,
-		['ò'] = '&ograve;' ,
-		['ó'] = '&oacute;' ,
-		['ô'] = '&ocirc;' ,
-		['õ'] = '&otilde;' ,
-		['ö'] = '&ouml;' ,
-		['÷'] = '&divide;' ,
-		['ø'] = '&oslash;' ,
-		['ù'] = '&ugrave;' ,
-		['ú'] = '&uacute;' ,
-		['û'] = '&ucirc;' ,
-		['ü'] = '&uuml;' ,
-		['ý'] = '&yacute;' ,
-		['þ'] = '&thorn;' ,
-		['ÿ'] = '&yuml;' ,
 		['"'] = '&quot;' ,
 		["'"] = '&#39;' ,
 		['<'] = '&lt;' ,
 		['>'] = '&gt;' ,
-		['&'] = '&amp;'
+		['&'] = '&amp;',
+
 	}
 	
 	local unentities = table.flipped(entities)
 
 	htmlentities = function(str) --ascii only, it seems...
-		return string.gsub(str, '(.)', entities)
+		return (string.gsub(str or "", '(.)', entities))
 	end
 	
 	htmlunentities = function(str)
-		return string.gsub(str, '(&[^;];)', unentities)
+		return (string.gsub(str or "", '(&[^;];)', unentities))
 	end
 end
+
+string.charat = function(str, i)
+	return str:sub(i,i)
+end
+
+string.gchars = function(str)
+	local len = #str
+	return function(str, i)
+		i = (i or 0) + 1
+		if i > len then return nil end
+		return i, str:charat(i)
+	end, str, nil
+end
+
+do
+
+	local to62t = {[0]='0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'}
+	local from62t = table.flipped(to62t)
+
+	--- base 10 integer to base 62
+	math.to62 = function(input)
+		require "bc" --todo: find a better package for this or something...		
+		input = (type(input) ~= 'number') and tonumber(input) or input
+		if not input then return nil, "expected a (base 10) number..." end
+		if input ~= math.floor(input) then return nil, "only integers, please" end
+		local sign, output = "", {}
+		if input < 0 then
+			input = -input
+			sign = "-"
+		end
+		local dec, div, i = bc.number(input), bc.number(62), 0
+		while not bc.iszero(dec) do
+			table.insert(output, 1, to62t[tonumber(bc.tostring(bc.mod(dec, div)))])
+			dec = bc.div(dec, div)
+			--print(dec)
+			i = i + 1
+		end
+		return table.concat(output)
+	end 
+
+	--- base 62 integer to base 10
+	math.from62 = function(input)
+		if type(input)~='string' then  return nil, "input must be a string" end
+		local acc = 0
+		local len = #input
+		for i, char in string.gchars(input) do
+			local cval = from62t[char]
+			if not cval then return nil, "base 62 number shouldn't contain '" .. char .. "'" end
+			acc = acc + cval*(62^(len - i))
+		end
+		return acc
+	end 
+end 

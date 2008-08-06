@@ -48,6 +48,11 @@ session = {
 				
 				engine:close() 
 			end)
+			
+			--prevent session hijacking
+			event:addListener("login", function()
+				self:change_id()
+			end)
 		end)
 	
 	end,
