@@ -1,46 +1,51 @@
 require "lfs"
 require "cgilua"
 
+--- webylene core. this does all sorts of bootstrappity things.
+-- @class module
 core = {
-	init = function(self)
+	--- do stuff!!
+	run = function(self)
+		self:initialize()
+		self:request()
+	end,
+	
+	--- initialize webylene
+	initialize = function(self)
 
 		webylene:loadlib("utils") -- we need all the random junk in here
-		
 		local ev = webylene.event
-		--where oh where shall I put this?
 		
-		cgilua.GET = cgilua.QUERY
-		cgilua.REQUEST = table.merge(cgilua.GET, cgilua.POST)
+		--load config
+		ev:start("loadConfig")
+			self:loadConfig("config", "lua")
+			self:loadConfig("config", "yaml")
+			ev:fire("configLoaded")
+		ev:finish("loadConfig")
 		
-		ev:fire("start")
-		ev:start("load")
-			--load config
-			ev:start("loadConfig")
-				self:loadConfig("config", "lua")
-				self:loadConfig("config", "yaml")
-				ev:fire("configLoaded")
-			ev:finish("loadConfig")
-			
+		ev:start("initialize")	
 			--load core objects
 			ev:start("loadCore")
 				self:loadObjects("objects/core")
-				--ev:fire("coreLoaded")
 			ev:finish("loadCore")
 			
 			--load plugin objects
 			ev:start("loadPlugins")
 				self:loadObjects("objects/plugins")
-				--webylene event fire("pluginsLoaded")
 			ev:finish("loadPlugins")
-		ev:finish("load")
+		ev:finish("initialize")
+	end,
 	
-		ev:start("ready")
-			ev:fire("route")
+	--- request events
+	request = function(self)
+		local e = webylene.event
+		cgilua.GET = cgilua.QUERY
+		cgilua.REQUEST = table.merge(cgilua.GET, cgilua.POST)
+		e:start("request")
+			e:fire("route")
+			print "" --this may be needed so that blank pages don't cause a 500. that is, at least output the header.
 			
-			--this may be needed so that blank pages don't cause a 500. that is, at least output the header.
-			print ""
-			
-		ev:finish("ready")
+		e:finish("request")
 	end,
 	
 	--- load config files of type <extension> from path <relativePath>. if <relativePath> is a folder, load all files with extension <extension>
@@ -62,7 +67,7 @@ core = {
 			end
 		}
 		
-		assert(loadFile[extension], "Config loader doesn't know what to do with the  <." .. extension .. "> extension.")
+		assert(loadFile[extension], "Config loader doesn't know what to do with the  \"." .. extension .. "\" extension.")
 		local absolutePath = webylene.path .. "/" .. relativePath
 		for file in lfs.dir(absolutePath) do																				-- is this part right?...
 			if file ~= "." and file ~= ".."  and lfs.attributes(absolutePath .. "/" .. file, "mode")=="file" and file:sub(-#extension) == extension then
@@ -86,5 +91,7 @@ core = {
 		end
 		return self
 	end
-	
 }
+
+--- constructor-ish thingy
+core.init = core.run

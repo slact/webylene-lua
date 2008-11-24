@@ -20,44 +20,48 @@ session = {
 	
 		cgilua.SESSION = self.data	--might come in handy?...
 		
-		event:addAfterListener("configLoaded", function() 
+		event:addListener("initialize", function() 
 			self.config = cf("session")
 			if not self.config or self.config.disabled == true or self.config.enabled == false or self.config.disabled == "true" or self.config.enabled == "false" then return end --do we want to try a session?
-			local engine = self.storage[self.config.storage]
-			--retrieve session id or create new one
-			self.id = cgilua.cookies.get(self.config.name) or self:generate_id()
-			
-			event:addAfterListener("loadCore", function()
-				engine:init()
-				event:start("readSession")
-				self.data = engine:read(self.id) or {}
-				event:finish("readSession")
-			end)
-			
-			event:addListener("sendHeaders", function()
-				local buf = {}
-				cgilua.cookies.set(self.config.name, session.id, {expires = os.time()+self.config.expires, path="/"})
-			end)
-			
-			event:addFinishListener("ready", function()
-				local buf = {}
-				event:start("writeSession")
-				engine:write(self.id, serialized(self.data))
-				event:finish("writeSession")
-				
-				math.randomseed(os.time())
-				if math.random(1, math.ceil(1/(self.config.gc_chance))) == 1 then
-					engine:gc(self.config.expires)
-				end
-				
-				engine:close() 
-			end)
-			
-			--prevent session hijacking
-			event:addListener("login", function()
-				self:change_id()
-			end)
+			self.engine = self.storage[self.config.storage]
 		end)
+		
+		event:addListener("databaseReady", function()
+			self.engine:init()
+			
+			--if the database is ready, we're okay to attach a listener to the request event.
+			event:addStartListener("request", function()
+				--retrieve session id or create new one
+				self.id = cgilua.cookies.get(self.config.name) or self:generate_id()
+				self.data = self.engine:read(self.id) or {}
+				event:start("sessionReady")--announce it to the world.
+			end)
+			
+		end)
+			
+		event:addListener("sendHeaders", function()
+			local buf = {}
+			cgilua.cookies.set(self.config.name, session.id, {expires = os.time()+self.config.expires, path="/"})
+		end)
+			
+		event:addFinishListener("databaseReady", function()
+			local buf = {}
+			event:finish("sessionReady") -- session's not ready anymore.
+			engine:write(self.id, serialized(self.data))
+			
+			math.randomseed(os.time())
+			if math.random(1, math.ceil(1/(self.config.gc_chance))) == 1 then
+				engine:gc(self.config.expires)
+			end
+			
+			engine:close() 
+		end)
+		
+		--[[
+		--prevent session hijacking
+		event:addListener("login", function()
+			self:change_id()
+		end)]]
 	
 	end,
 	

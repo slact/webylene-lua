@@ -2,8 +2,8 @@
 -- a crisp is a variable that persists until the next request from the owner of a given session, and then gets removed -- unless explicitly prolonged
 crisp = {
 	init = function(self)
-		event:addAfterListener("readSession", function() session.data.crisps = session.data.crisps or {}; end)
-		event:addStartListener("writeSession", function() self:clean() end)
+		event:addListener("sessionReady", function() session.data.crisps = session.data.crisps or {}; end)
+		event:addFinishListener("sessionReady", function() self:clean() end)
 	end,
 	
 	exists = function(self, name)

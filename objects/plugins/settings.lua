@@ -5,7 +5,7 @@ do
 	settings = {
 		init = function(self)
 			self.table = cf("table") or ""
-			event:addAfterListener("readSession", function()
+			event:addListener("sessionReady", function()
 				if not session.data.settings then
 					session.data.settings = {}
 				end

@@ -7,11 +7,11 @@ require "sha1"
 --  - logout:			just before logging out
 user = {
 	init = function(self)
-		event:addAfterListener("configLoaded", function()
+		event:addListener("initialize", function()
 			self.config = cf("user")
 		end)
 		
-		event:addAfterListener("readSession", function()
+		event:addListener("sessionReady", function()
 			self.data = session.data.user
 		end)
 	end,
@@ -22,9 +22,10 @@ user = {
 			--log in!
 			session.data.user = user
 			self.data = session.data.user
-			event:fire("login")
+			session:change_id() -- prevent session hijacking
+			--event:fire("login")
 		else
-			event:fire("login failed")
+			--event:fire("login failed")
 			return nil, "Wrong username or password."
 		end
 		return user

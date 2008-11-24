@@ -1,51 +1,6 @@
----- the following is dirty, and should be tucked away in some library or something. --------
+---- the following is dirty, and should be split up into libraries or something. --------
 
-do
-	local headers_sent = false
-	local content={"text","html"}
-	local header_check = function()
-		if not headers_sent then
-			headers_sent = true
-			event:fire("sendHeaders")
-			cgilua.contentheader(unpack(content))
-		end
-	end
-	
-	--- header-friendly print function. writes content-type header only once
-	print = function(...)
-		header_check()
-		cgilua.print(unpack(arg))
-	end
-	--- header-friendly write function. writes content-type header only once
-	write = function(...)
-		header_check()
-		io.write(unpack(arg))
-	end
-	
-	---self-explanatory
-	set_content_type = function(arg)
-		if type(arg) == "string" then
-			local slash = assert(string.find(arg, "/", 0, true), "Invalid content-type, must be something/something-else.")
-			content[2]=string.sub(arg, slash+1)
-			content[1]=string.sub(arg, 0, slash-1)
-		elseif type(arg) == "table" and table.length(arg) == 2 then
-			content = arg
-		else
-			error("unknown content-type format...")
-		end
-	end
-end
-
---- config retrieval function. kinda redundant, but used in other languages' versions of webylene. here for consistency.
-function cf(...)
-	local config = webylene.config
-	for i,v in ipairs(arg) do
-		config = config[v]
-	end
-	return config
-end
-
-
+ 
 function math.round(num, idp)
 	local mult = 10^(idp or 0)
 	return math.floor(num * mult + 0.5) / mult
@@ -96,6 +51,7 @@ table.each = function(tbl, callback)
 	for i, v in pairs(tbl) do
 		callback(v, i, tbl)
 	end
+	return tbl
 end
 
 --- does tbl contain value, and, if so, is i s.t. tbl[i]==value numeric?
@@ -142,16 +98,6 @@ table.length = function(tbl)
 	end
 end
 
---- perform function mapper on each element of table tbl. function modifies tbl.
--- mapper function is of the form mapper(key, value)
--- returns tbl
--- O(n)
-function table.map_in_place(tbl, mapper)
-	for k,v in pairs(tbl) do
-		tbl[k] = mapper(k,v)
-	end
-	return tbl
-end
 
 --- copy a table. does _not_ copy the metatable, but it does set the copy's metatable to theoriginal's
 function table.copy(tbl)
@@ -162,15 +108,26 @@ function table.copy(tbl)
 	return c
 end
 
+--- perform function mapper on each element of table tbl. function modifies tbl.
+-- mapper function is of the form mapper(key, value, tbl)
+-- returns tbl
+-- O(n)
+function table.map_in_place(tbl, mapper)
+	for k,v in pairs(tbl) do
+		tbl[k] = mapper(k, v, tbl)
+	end
+	return tbl
+end
+
 --- perform function mapper on each element of table tbl.
--- mapper function is of the form mapper(key, value)
+-- mapper function is of the form mapper(key, value, tbl)
 -- undefined functionality for non-table values of tbl
 -- returns new, mapped table
 -- O(n)
 function table.map(tbl, mapper)
 	local nt = {}
 	for k,v in pairs(tbl) do
-		nt[k] = mapper(k,v)
+		nt[k] = mapper(k,v, tbl)
 	end
 	return nt
 end
@@ -279,6 +236,252 @@ function table.merge(t, u)
 	end
   end
   return r
+end
+
+--- append anumerically-indexed table t1 to t2.
+-- modifies t1. t2 overwrites t1 on matching non-numeric keys.
+-- @param t1 table to be appended to. will be modified.
+-- @param t2 table that we want to append.
+-- @return t1
+function table.append(t1, t2)
+	local t1_length = #t1
+	for i, v in pairs(t2) do
+		if type(i) == "number" then
+			t1[t1_length + i]=v
+		else
+			t1[i]=v
+		end
+	end
+	return t1
+end 
+
+function table.empty(t) 
+	return next(t) == nil 
+end
+
+---debuggery
+function table.show(t, name, indent)
+   local cart     -- a container
+   local autoref  -- for self references
+
+   --[[ counts the number of elements in a table
+   local function tablecount(t)
+      local n = 0
+      for _, _ in pairs(t) do n = n+1 end
+      return n
+   end
+   ]]
+   -- (RiciLake) returns true if the table is empty
+   local function isemptytable(t) return next(t) == nil end
+
+   local function basicSerialize (o)
+      local so = tostring(o)
+      if type(o) == "function" then
+         local info = debug.getinfo(o, "S")
+         -- info.name is nil because o is not a calling level
+         if info.what == "C" then
+            return string.format("%q", so .. ", C function")
+         else 
+            -- the information is defined through lines
+            return string.format("%q", so .. ", defined in (" ..
+                info.linedefined .. "-" .. info.lastlinedefined ..
+                ")" .. info.source)
+         end
+      elseif type(o) == "number" then
+         return so
+      elseif type(o) == "boolean" then
+		 return so
+	  else
+         return string.format("%q", so)
+      end
+   end
+
+   local function addtocart (value, name, indent, saved, field)
+      indent = indent or ""
+      saved = saved or {}
+      field = field or name
+
+      cart = cart .. indent .. field
+
+      if type(value) ~= "table" then
+         cart = cart .. " = " .. basicSerialize(value) .. ";\n"
+      else
+         if saved[value] then
+            cart = cart .. " = {}; -- " .. saved[value] 
+                        .. " (self reference)\n"
+            autoref = autoref ..  name .. " = " .. saved[value] .. ";\n"
+         else
+            saved[value] = name
+            --if tablecount(value) == 0 then
+            if isemptytable(value) then
+               cart = cart .. " = {};\n"
+            else
+               cart = cart .. " = {\n"
+               for k, v in pairs(value) do
+                  k = basicSerialize(k)
+                  local fname = string.format("%s[%s]", name, k)
+                  field = string.format("[%s]", k)
+                  -- three spaces between levels
+                  addtocart(v, fname, indent .. "   ", saved, field)
+               end
+               cart = cart .. indent .. "};\n"
+            end
+         end
+      end
+   end
+
+   name = name or "__unnamed__"
+   if type(t) ~= "table" then
+      return name .. " = " .. basicSerialize(t)
+   end
+   cart, autoref = "", ""
+   addtocart(t, name, indent)
+   return cart .. autoref
+end 
+
+---reversed ipairs
+table.irpairs = function(tbl)
+	local len = #tbl
+	return function(tbl, index)
+		index = index or #tbl
+		return ((index ~= 1 and tbl[index-1]) and index-1 or nil), tbl[index]
+	end
+end 
+
+
+---debuggery
+function table.show(t, name, indent)
+   local cart     -- a container
+   local autoref  -- for self references
+
+   --[[ counts the number of elements in a table
+   local function tablecount(t)
+      local n = 0
+      for _, _ in pairs(t) do n = n+1 end
+      return n
+   end
+   ]]
+   -- (RiciLake) returns true if the table is empty
+   local function isemptytable(t) return next(t) == nil end
+
+   local function basicSerialize (o)
+      local so = tostring(o)
+      if type(o) == "function" then
+         local info = debug.getinfo(o, "S")
+         -- info.name is nil because o is not a calling level
+         if info.what == "C" then
+            return string.format("%q", so .. ", C function")
+         else 
+            -- the information is defined through lines
+            return string.format("%q", so .. ", defined in (" ..
+                info.linedefined .. "-" .. info.lastlinedefined ..
+                ")" .. info.source)
+         end
+      elseif type(o) == "number" then
+         return so
+      elseif type(o) == "boolean" then
+		 return so
+	  else
+         return string.format("%q", so)
+      end
+   end
+
+   local function addtocart (value, name, indent, saved, field)
+      indent = indent or ""
+      saved = saved or {}
+      field = field or name
+
+      cart = cart .. indent .. field
+
+      if type(value) ~= "table" then
+         cart = cart .. " = " .. basicSerialize(value) .. ";\n"
+      else
+         if saved[value] then
+            cart = cart .. " = {}; -- " .. saved[value] 
+                        .. " (self reference)\n"
+            autoref = autoref ..  name .. " = " .. saved[value] .. ";\n"
+         else
+            saved[value] = name
+            --if tablecount(value) == 0 then
+            if isemptytable(value) then
+               cart = cart .. " = {};\n"
+            else
+               cart = cart .. " = {\n"
+               for k, v in pairs(value) do
+                  k = basicSerialize(k)
+                  local fname = string.format("%s[%s]", name, k)
+                  field = string.format("[%s]", k)
+                  -- three spaces between levels
+                  addtocart(v, fname, indent .. "   ", saved, field)
+               end
+               cart = cart .. indent .. "};\n"
+            end
+         end
+      end
+   end
+
+   name = name or "__unnamed__"
+   if type(t) ~= "table" then
+      return name .. " = " .. basicSerialize(t)
+   end
+   cart, autoref = "", ""
+   addtocart(t, name, indent)
+   return cart .. autoref
+end 
+
+---reversed ipairs
+table.irpairs = function(tbl)
+	local len = #tbl
+	return function(tbl, index)
+		index = index or #tbl
+		return ((index ~= 1 and tbl[index-1]) and index-1 or nil), tbl[index]
+	end
+end
+
+
+do
+	local headers_sent = false
+	local content={"text","html"}
+	local header_check = function()
+		if not headers_sent then
+			headers_sent = true
+			event:fire("sendHeaders")
+			cgilua.contentheader(unpack(content))
+		end
+	end
+	
+	--- header-friendly print function. writes content-type header only once
+	print = function(...)
+		header_check()
+		cgilua.print(unpack(arg))
+	end
+	--- header-friendly write function. writes content-type header only once
+	write = function(...)
+		header_check()
+		io.write(unpack(arg))
+	end
+	
+	---self-explanatory
+	set_content_type = function(arg)
+		if type(arg) == "string" then
+			local slash = assert(string.find(arg, "/", 0, true), "Invalid content-type, must be something/something-else.")
+			content[2]=string.sub(arg, slash+1)
+			content[1]=string.sub(arg, 0, slash-1)
+		elseif type(arg) == "table" and table.length(arg) == 2 then
+			content = arg
+		else
+			error("unknown content-type format...")
+		end
+	end
+end
+
+--- config retrieval function. kinda redundant, but used in other languages' versions of webylene. here for consistency.
+function cf(...)
+	local config = webylene.config
+	for i,v in ipairs(arg) do
+		config = config[v]
+	end
+	return config
 end
 
 --- extract filename from a path string. assumes unixish forward slashes.
@@ -395,7 +598,6 @@ do
 		['<'] = '&lt;' ,
 		['>'] = '&gt;' ,
 		['&'] = '&amp;',
-
 	}
 	
 	local unentities = table.flipped(entities)
@@ -429,6 +631,7 @@ do
 
 	--- base 10 integer to base 62
 	math.to62 = function(input)
+		if input == 0 or input == "0" then return "0" end
 		require "bc" --todo: find a better package for this or something...		
 		input = (type(input) ~= 'number') and tonumber(input) or input
 		if not input then return nil, "expected a (base 10) number..." end
@@ -461,3 +664,21 @@ do
 		return acc
 	end 
 end 
+
+---Asynchronous JSON REST helper
+do
+	require "cgilua"
+	local method = tostring(cgilua.servervariable('REQUEST_METHOD'))
+	switch_method = function(method_table, suppress_message)
+		if method_table[method] then
+			method_table[method]()
+		else
+			require "json"
+			cgilua.header("Status",405)
+			cgilua.header("Allow", table.concat(table.keys(method_table), ", "))
+			if not suppress_message then 
+				print(json.encode("This resource doesn't allow method " .. method .. "."))
+			end
+		end
+	end 
+end

@@ -1,7 +1,7 @@
 require "cgilua.lp"
 template = {
 	init = function(self)
-		event:addAfterListener("loadConfig", function()
+		event:addListener("initialize", function()
 
 			--load 'em on in!
 			self.settings = {templates = cf("templates") or {}, layouts = cf("layouts") or {}}

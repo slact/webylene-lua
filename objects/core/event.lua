@@ -31,6 +31,7 @@ do
 		
 		--- fire event [event]
 		-- @param event event name
+		-- @return self
 		fire = function(self, event)
 			self:start(event)
 			self:finish(event)
@@ -39,6 +40,8 @@ do
 		
 		--- start event [event]
 		-- fires start and during [event] listeners
+		-- @param event event name
+		-- @return self
 		start = function(self, event)
 			--activeEvents println
 			--cgi write("starting #{event}\n" interpolate)
@@ -74,6 +77,7 @@ do
 		
 		
 		--- add a during [eventName] listener
+		-- @param listener listener function
 		addListener = function(self, eventName, listener)
 			--adding  eventName
 			table.insert(listeners[eventName].during, listener) --add the event!
@@ -90,14 +94,6 @@ do
 			
 		addFinishListener = function(self, eventName, listener)
 			table.insert(listeners[eventName].finish, listener) --add the event!
-			return self
-		end,
-		
-		addAfterListener = function(self, eventName, listener)
-			table.insert(listeners[eventName].after, listener) --add the event!
-			if self:finished(eventName) then
-				listener()
-			end
 			return self
 		end
 	}	

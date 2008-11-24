@@ -4,19 +4,19 @@ rex = rex_pcre
 router = {
 
 	init = function(self)
-		--route when it's time to do so
+		--set our configgy stuff
+		event:addListener("initialize",function()
+			self.settings=cf("router") or error("No router config found. bailing.")
+		end)
 		
+		--route when it's time to do so
 		event:addListener("route", function()
 			self:route(cgilua.servervariable("SCRIPT_URI"))
 		end)
 		
-		--set our configgy stuff
-		event:addAfterListener("loadConfig",function()
-			self.settings=cf("router") or error("No router config found. bailing.")
-		end)
 	end,
 	
-	--- parse a uri into its parts. returns a table with indices:
+	--- parse a uri into its parts. returns a table with keys:
 	-- scheme	= protocol used (http, https, ftp, etc)
 	-- userinfo	= username:password
 	-- hostname	= hostname or ip address of server

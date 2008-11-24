@@ -1,12 +1,12 @@
 require "luasql.mysql"
-require "gettimeofday" -- temp needed for debugging
 
 --- the database talker object. also available as webylene.db
 database = {
+	--- initialize db connection
 	init = function(self)
 		webylene.db = self -- shorthand for everyone else to use.
 		
-		event:addAfterListener("loadConfig",function()
+		event:addListener("initialize",function()
 			self.settings=cf("database") -- these will be loaded by now.
 			if not self.settings then return nil, "no database config. ain't even gonna try to connect" end
 			self.env = luasql.mysql()
@@ -14,11 +14,15 @@ database = {
 			self.conn = assert(self.env:connect(self.settings.db, self.settings.username, self.settings.password, self.settings.host, self.settings.port or 3306))
 			
 			setmetatable(self, {__index=self.conn})
+			event:start("databaseReady")
 		end)
 		
-		event:addAfterListener("ready", function()
+		event:addFinishListener("request", function()
+			event:finish("databaseReady")
 			--disconnect
-			if self.conn then self.conn:close() end
+			if self.conn then 
+				self.conn:close() 
+			end
 		end)
 	end,
 	
@@ -26,13 +30,16 @@ database = {
 	
 	--- perform an SQL query. returns a cursor for SELECT queries, number of rows touched for all other queries,(nil, error) on error.
 	-- @param str query
+	-- @return query result or [nil, err_message] on error
 	query = function(self, str)
-		local start = os.gettimeofday()
+		-- DEBUGGY STUFF
+		--require "gettimeofday" -- temp needed for debugging
+		--local start = os.gettimeofday()
 		local res, err = self.conn:execute(str)
-		local finish = os.gettimeofday()
-		if (finish - start) > 0.05 then
-			logger:info("Unusually long query: '" .. str .. "' took " .. (finish - start) .. "msec")
-		end
+		--local finish = os.gettimeofday()
+		--if (finish - start) > 0.05 then
+		--	logger:info("Unusually long query: '" .. str .. "' took " .. (finish - start) .. "msec")
+		--end
 		if res == nil then
 			return nil, err .. ". QUERY WAS: " .. str
 		end
@@ -40,6 +47,9 @@ database = {
 	end,
 	
 	--- for loop iterator for a database result cursor. see the luaSQL cursor documentation
+	-- @param cur database query cursor. returns nil if (not cur)
+	-- @param mode (optional) 'i' for numeric or 'a' for text row keys. defaults to 'a'.
+	-- @return generic-for iterator function
 	rows = function(self, cur, mode)
 		if not cur then
 			return nil, "no cursor provided."
@@ -51,6 +61,8 @@ database = {
 	end,
 	
 	--- returns a table containing all result rows for a given cursor
+	-- @param cur database query cursor. undefined behavior if cur is anything else.
+	-- @return 
 	results = function(self, cur)
 		local res = {}
 		for row in self:rows(cur) do
