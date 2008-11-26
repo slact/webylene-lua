@@ -1,4 +1,5 @@
 require "lp"
+require "wsapi.util"
 template = {
 	init = function(self)
 		event:addListener("initialize", function()
@@ -110,7 +111,10 @@ template = {
 		
 		ref = function()
 			return webylene.router.currentRoute.param.ref
-		end
+		end,
+		
+		url_encode = wsapi.util.url_encode,
+		url_decode = wsapi.util.url_decode
 		
 	}, {__index=_G})
 	

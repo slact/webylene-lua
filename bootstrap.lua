@@ -1,11 +1,14 @@
 --we'll need this stuff right off the bat
 require "wsapi.request"
 require "wsapi.response"
+local path_separator = "/"
+
 
 webylene = {
 	initialize = function(self, wsapi_env)
 		assert(self:locate(wsapi_env))
-		package.path = self.path .. "/share/?.lua;" .. self.path .. "/share/?/init.lua;" .. package.path
+		local slash = path_separator
+		package.path = self.path .. slash .. "share" .. slash .. "?.lua;" .. self.path .. slash .. "share" .. slash .. "?" .. slash .. "init.lua;" .. package.path
 		self:import("core")
 		self.core:initialize(wsapi_env)
 	end,
@@ -19,18 +22,20 @@ webylene = {
 		return self.response:finish()
 	end,
 
+	path_separator = path_separator,
+	
 	--- where the crap is webylene running? this function finds the absolute path of the webylene root, based on the assumption that it was started from web/index.lua
 	locate = function(self, wsapi_env)
 		local path = nil
-		local path_separator = "/"
 		local level = string.format("%s[^%s]+", path_separator, path_separator)
 		if wsapi_env then
 			if wsapi_env.PATH_TRANSLATED and wsapi_env.PATH_TRANSLATED ~= "" then -- /foo/bar/baz/webylene/web/index.lua, probably
 				path = wsapi_env.PATH_TRANSLATED:gsub(level:rep(2) .. "$", "", 1)
 			elseif wsapi_env.DOCUMENT_ROOT and wsapi_env.PATH_TRANSLATED ~= "" then --/foo/bar/baz/webylene/web/
-				path = wsapi_env.DOCUMENT_ROOT:gsub(level .. "/?$", "", 1)
+				path = wsapi_env.DOCUMENT_ROOT:gsub(level .. path_separator .. "?$", "", 1)
 			end
 		else
+			--last-ditch attempt
 			path = debug.getinfo(1, 'S').source
 			if path:byte(1) == string.byte("@", 1) then -- @/foo/bar/baz/webylene/bootstrap.lua, probably
 				path = string.gsub(string.sub(path, 2), level .. "$", "", 1)
@@ -80,16 +85,22 @@ webylene = {
 			return result
 		end
 		return nil
-	end,
-	
-	--- load a library (random heap o' functions) from webylene root/lib/[lib_name].lua
-	loadlib = function(self, lib_name)
-		assert(loadfile(webylene.path .. "/lib/" .. lib_name .. ".lua"))()
 	end
 }
 
 do
+	local libsLoaded = {}
+	--- load a library (heap o' functions) from webylene root/lib/[lib_name].lua
+	webylene.loadlib = function(self, lib_name)
+		if not libsLoaded[lib_name] then
+			assert(loadfile(self.path .. path_separator .. "lib" .. path_separator .. lib_name .. ".lua"), string.format("%s.lua not found in " .. self.path .. path_separator .. "lib" .. path_separator , lib_name))()
+			libsLoaded[lib_name]=true
+		end
+		return self
+	end
+
 	local notFound = {}
+	local object_dirs = {"objects" .. path_separator .. "core", "objects", "objects" .. path_separator .. "plugins"} --where shall we look?
 	
 	--- (too) magic webylene importer. called whenever webylene.foo is nil, tries to load foo.lua from the folders listed below. 
 	--@see webylene.importFile
@@ -99,14 +110,13 @@ do
 		elseif notFound[object_name] then
 			return nil
 		end
-		local dirs = {"objects/core", "objects", "objects/plugins"} --where shall we look?
 		local f, path, result
-		for i,dir in pairs(dirs) do
+		for i,dir in pairs(object_dirs) do
 
-			path = self.path .. "/" .. dir .. "/" .. object_name .. ".lua"
+			path = self.path .. path_separator .. dir .. path_separator .. object_name .. ".lua"
 			f = io.open(path, "r")
 			if f then
-				result = self:importChunk(assert(loadstring(f:read("*all"), dir .. "/" .. object_name .. ".lua")), object_name)
+				result = self:importChunk(assert(loadstring(f:read("*all"), dir .. path_separator .. object_name .. ".lua")), object_name)
 				if result ~= nil then
 					return result
 				end
