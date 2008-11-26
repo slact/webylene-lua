@@ -8,27 +8,22 @@ do
 			tbl[eventName]= {
 				start  = {},
 				during = {},
-				finish = {},
-				after  = {}
+				finish = {}
 			}
 			return tbl[eventName]
 		end
 	})
 	local activeEvents = {}
-	local finishedEvents = {}
 	
 	--- the event thinger
 	event = {
 		--- is eventName active?
 		active = function(self, eventName)
-			return table.contains(activeEvents, eventName)
-		end,
-			
-		--- is eventName finished?
-		finished = function(self, eventName)
-			return table.contains(finishedEvents, eventName)
+			return activeEvents[eventName]
 		end,
 		
+		activeEvents = activeEvents,
+			
 		--- fire event [event]
 		-- @param event event name
 		-- @return self
@@ -43,17 +38,19 @@ do
 		-- @param event event name
 		-- @return self
 		start = function(self, event)
-			--activeEvents println
-			--cgi write("starting #{event}\n" interpolate)
-			if self:active(event) then
-				error("tried starting event <" .. event .. "> but it's already started.")
+			if self:active(event) then --aw, crap
+				error("tried starting event '" .. event .. "' but it's already started. \n active events: {" ..
+					table.concat(
+						table.reduce(activeEvents, function(prev, cur, key) table.insert(prev,string.format("'%s'", key)); return prev; end, {}),
+						", "
+					) .. "}"
+				)
 			end
-			table.insert(activeEvents, event)
-			for i, event_handler in pairs(listeners[event].start) do --yep.
-				event_handler()
-			end
-			for i, event_handler in pairs(listeners[event].during) do 
-				event_handler()
+			activeEvents[event]=true
+			for i, listener_table in ipairs({listeners[event].start, listeners[event].during}) do
+				for i, event_handler in pairs(listener_table) do --yep.
+					event_handler()
+				end
 			end
 			return self
 		end,
@@ -62,16 +59,12 @@ do
 		-- fires finish and after [event] listeners
 		finish = function(self, event)
 			if not self:active(event) then
-				error("tried finishing event <" .. event .. "> but it's not active and hadn't been started.")
+				error("tried finishing event '" .. event .. "' but it's not active and hadn't been started.")
 			end
-			table.remove(activeEvents, table.find(activeEvents, event))
-			table.insert(finishedEvents, event)
 			for i, event_handler in pairs(listeners[event].finish) do --yep.
 				event_handler()
 			end
-			for i, event_handler in pairs(listeners[event].after) do 
-				event_handler()
-			end
+			activeEvents[event]=nil
 			return self
 		end,
 		
@@ -80,6 +73,9 @@ do
 		-- @param listener listener function
 		addListener = function(self, eventName, listener)
 			--adding  eventName
+			if self:active("request") then
+				error("shit.")
+			end
 			table.insert(listeners[eventName].during, listener) --add the event!
 			if self:active(eventName) then
 				listener()
@@ -88,11 +84,17 @@ do
 		end,
 		
 		addStartListener = function(self, eventName, listener)
+			if self:active("request") then
+				error("shit.")
+			end
 			table.insert(listeners[eventName].start, listener) --add the event!
 			return self
 		end,
 			
 		addFinishListener = function(self, eventName, listener)
+			if self:active("request") then
+				error("shit.")
+			end
 			table.insert(listeners[eventName].finish, listener) --add the event!
 			return self
 		end

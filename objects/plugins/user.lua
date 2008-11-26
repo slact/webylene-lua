@@ -1,10 +1,6 @@
 require "sha1"
 
 --- basic user management object. 
--- events:
---  - login: 			after a login succeeded
---  - login failed: 	after a login failed
---  - logout:			just before logging out
 user = {
 	init = function(self)
 		event:addListener("initialize", function()
@@ -23,9 +19,7 @@ user = {
 			session.data.user = user
 			self.data = session.data.user
 			session:change_id() -- prevent session hijacking
-			--event:fire("login")
 		else
-			--event:fire("login failed")
 			return nil, "Wrong username or password."
 		end
 		return user

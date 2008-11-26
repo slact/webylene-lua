@@ -1,5 +1,5 @@
 require "lfs"
-require "cgilua"
+--require "wsapi"
 
 --- webylene core. this does all sorts of bootstrappity things.
 -- @class module
@@ -36,15 +36,11 @@ core = {
 		ev:finish("initialize")
 	end,
 	
-	--- request events
+	--- respond to a request
 	request = function(self)
 		local e = webylene.event
-		cgilua.GET = cgilua.QUERY
-		cgilua.REQUEST = table.merge(cgilua.GET, cgilua.POST)
 		e:start("request")
 			e:fire("route")
-			print "" --this may be needed so that blank pages don't cause a 500. that is, at least output the header.
-			
 		e:finish("request")
 	end,
 	
@@ -92,6 +88,3 @@ core = {
 		return self
 	end
 }
-
---- constructor-ish thingy
-core.init = core.run

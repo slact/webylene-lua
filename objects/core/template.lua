@@ -1,4 +1,4 @@
-require "cgilua.lp"
+require "lp"
 template = {
 	init = function(self)
 		event:addListener("initialize", function()
@@ -19,7 +19,7 @@ template = {
 				table.mergeWith(self.settings.templates, self.discover_templates(self))
 			end
 			
-			cgilua.lp.setoutfunc("write")
+			lp.setoutfunc("write")
 		end)
 	end, 
 	
@@ -84,8 +84,7 @@ template = {
 	end,
 	
 	include = function(self, template, locals)
-		--print(cgilua.lp.translate(io.open(webylene.path .. "/templates/" .. template.path, "r"):read("*all")))
-		cgilua.lp.include(webylene.path .. "/templates/" .. template.path, self:prepareLocals(locals))
+		lp.include(webylene.path .. "/templates/" .. template.path, self:prepareLocals(locals))
 	end,
 	
 	prepareLocals = function(self, locals)

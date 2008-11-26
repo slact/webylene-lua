@@ -1,5 +1,7 @@
 Options +FollowSymLinks +ExecCGI
 
+AddHandler fastcgi-script fcg fcgi fpl
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
@@ -8,9 +10,6 @@ Options +FollowSymLinks +ExecCGI
   RewriteRule ^(.*)$ /index.lua [QSA,L]
 </IfModule>
 
-AddHandler fastcgi-script fcg fcgi fpl
-
-AddHandler lua-cgi .lp .lua
 Action lua-fcgi /cgi-bin/lua.fcgi
 Action lua-cgi /cgi-bin/lua.cgi
-Options +FollowSymLinks
+AddHandler lua-cgi .lua

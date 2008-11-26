@@ -11,7 +11,7 @@ router = {
 		
 		--route when it's time to do so
 		event:addListener("route", function()
-			self:route(cgilua.servervariable("SCRIPT_URI"))
+			self:route(request.SCRIPT_URI)
 		end)
 		
 	end,
@@ -50,7 +50,7 @@ router = {
 	
 	--- stuff to do upon finishing the routing.
 	arriveAtDestination = function(self, route)
-		table.mergeWith(cgilua.REQUEST, route.destination.param) --add route's predefined params to the REQUEST table
+		table.mergeWith(request.params, route.destination.param) --add route's predefined params to the REQUEST table
 		self.currentRoute = route
 		
 		event:fire("arriveAtDestination")
@@ -64,10 +64,10 @@ router = {
 		local match = { url = false, param = true }
 		
 		--TODO: this whole thing's kind of ugly. prettify later.
-		local request = cgilua.REQUEST
+		local params = request.params
 		for param, val in pairs(path.param) do
 		--path params. it's an or.
-			if request[param] ~= val then
+			if params[param] ~= val then
 				match.param = false
 				break
 			end
@@ -79,10 +79,11 @@ router = {
 				--regex comparison
 				local matches = {rex.new("^" .. furl .. "$"):exec(url)}
 				if #matches ~= 0 then --the regexp matched!
+					local params = request.params
 					for name, val in pairs(matches[3]) do
 					--expand named regex captures into REQUEST parameters
 						if type(name) == "string" and val ~= false then
-							cgilua.REQUEST[name]=val
+							params[name]=val
 						end
 					end
 					match.url = true

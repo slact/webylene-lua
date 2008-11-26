@@ -10,10 +10,14 @@ database = {
 			self.settings=cf("database") -- these will be loaded by now.
 			if not self.settings then return nil, "no database config. ain't even gonna try to connect" end
 			self.env = luasql.mysql()
+		end)
+		event:addStartListener("request", function()
 			--connect
 			self.conn = assert(self.env:connect(self.settings.db, self.settings.username, self.settings.password, self.settings.host, self.settings.port or 3306))
 			
-			setmetatable(self, {__index=self.conn})
+			setmetatable(self, 
+				setmetatable({__index=self.conn}, {__mode='v'})
+			)
 			event:start("databaseReady")
 		end)
 		
@@ -21,7 +25,8 @@ database = {
 			event:finish("databaseReady")
 			--disconnect
 			if self.conn then 
-				self.conn:close() 
+				self.conn:close()
+				self.conn = nil
 			end
 		end)
 	end,

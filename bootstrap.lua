@@ -1,20 +1,47 @@
 --we'll need this stuff right off the bat
-require "cgilua"
-require "lfs"
+require "wsapi.request"
+require "wsapi.response"
 
 webylene = {
+	initialize = function(self, wsapi_env)
+		assert(self:locate(wsapi_env))
+		package.path = self.path .. "/share/?.lua;" .. self.path .. "/share/?/init.lua;" .. package.path
+		self:import("core")
+		self.core:initialize(wsapi_env)
+	end,
+	
+	wsapi_request = function(self, wsapi_env)
+		self.request = setmetatable(wsapi.request.new(wsapi_env), {__index=wsapi_env})
+		self.request.env = wsapi_env
+		self.req = self.request
+		self.response = wsapi.response.new()
+		self.core:request()
+		return self.response:finish()
+	end,
+
 	--- where the crap is webylene running? this function finds the absolute path of the webylene root, based on the assumption that it was started from web/index.lua
-	locate = function(self, path)
-		local path = cgilua.script_pdir --there's the web/index.lua assumption. also, assumes that the server properly identifies script_pdir
-		local slash_byte = string.byte("/",1)
-		for i=#path-1, 1, -1 do   --i=path-1 to ignore trailing slash.
-			if path:byte(i) == slash_byte then
-				self.locate = nil
-				self.path = path:sub(1, i-1)
-				return self.path
+	locate = function(self, wsapi_env)
+		local path = nil
+		local path_separator = "/"
+		local level = string.format("%s[^%s]+", path_separator, path_separator)
+		if wsapi_env then
+			if wsapi_env.PATH_TRANSLATED and wsapi_env.PATH_TRANSLATED ~= "" then -- /foo/bar/baz/webylene/web/index.lua, probably
+				path = wsapi_env.PATH_TRANSLATED:gsub(level:rep(2) .. "$", "", 1)
+			elseif wsapi_env.DOCUMENT_ROOT and wsapi_env.PATH_TRANSLATED ~= "" then --/foo/bar/baz/webylene/web/
+				path = wsapi_env.DOCUMENT_ROOT:gsub(level .. "/?$", "", 1)
+			end
+		else
+			path = debug.getinfo(1, 'S').source
+			if path:byte(1) == string.byte("@", 1) then -- @/foo/bar/baz/webylene/bootstrap.lua, probably
+				path = string.gsub(string.sub(path, 2), level .. "$", "", 1)
 			end
 		end
-		return nil, "couldn't find webylene root!!. cgilua.script_pdir was <" .. tostring(cgilua.script_pdir) .. ">."
+		if path then
+			self.path = path
+			return path
+		else
+			return nil, "Tried really hard, but couldn't find webylene root."
+		end
 	end,
 	
 	path = "",
@@ -28,10 +55,9 @@ webylene = {
 	importChunk = function(self, file_chunk, object_name)
 		if file_chunk == nil then return end 
 		
-		--print ("IMPORTAGE OF " .. object_name .. "\n")
-		local safe_env = setmetatable({}, {__index=_G})
-		setfenv(file_chunk, safe_env)() -- run the file in a safe environment
-		local result = rawget(safe_env, object_name)
+		local relatively_safe_env = setmetatable({}, {__index=_G})
+		setfenv(file_chunk, relatively_safe_env)() -- run the file in a (relatively) safe environment
+		local result = rawget(relatively_safe_env, object_name)
 		if result ~= nil then --there it is!
 			rawset(self, object_name, result)
 			if (type(result)=="table") and (type(result.init) == "function") then --if it's a table and has an init, run it.
@@ -46,7 +72,6 @@ webylene = {
 	-- @see webylene.importChunk
 	importFile = function(self, file_path, object_name)
 		local object_name = object_name or extractFilename(file_path):sub(1, (-#".lua"-1))
-		--print("OBJ:" .. object_name .. " PATH:" .. file_path .. "\n" )
 		if rawget(self, object_name) ~= nil then
 			return self[object_name]
 		end
@@ -66,7 +91,7 @@ webylene = {
 do
 	local notFound = {}
 	
-	--- magic webylene importer. called whenever webylene.foo is nil, tries to load foo.lua from the folders listed below. 
+	--- (too) magic webylene importer. called whenever webylene.foo is nil, tries to load foo.lua from the folders listed below. 
 	--@see webylene.importFile
 	webylene.import = function(self, object_name)
 		if rawget(self, object_name) ~= nil then
@@ -100,8 +125,3 @@ setmetatable(webylene, {
 })
 
 setmetatable(_G, {__index = webylene}) -- so that people don't have to write webylene.this and webylene.that and so forth all the time.	
-
---where am i?
-assert(webylene:locate())
------
-webylene:import("core")

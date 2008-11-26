@@ -440,29 +440,24 @@ end
 
 
 do
-	local headers_sent = false
-	local content={"text","html"}
-	local header_check = function()
-		if not headers_sent then
-			headers_sent = true
-			event:fire("sendHeaders")
-			cgilua.contentheader(unpack(content))
-		end
+	--- wsapi write function
+	write = function(...)
+		webylene.response:write(arg)
 	end
 	
-	--- header-friendly print function. writes content-type header only once
+	--- print replacement
 	print = function(...)
-		header_check()
-		cgilua.print(unpack(arg))
+		local printResult = ""
+		for i,v in ipairs(arg) do
+			printResult = printResult .. tostring(v) .. "\t"
+		end
+		write(printResult .. "\n")
 	end
-	--- header-friendly write function. writes content-type header only once
-	write = function(...)
-		header_check()
-		io.write(unpack(arg))
-	end
+	
 	
 	---self-explanatory
 	set_content_type = function(arg)
+		local content
 		if type(arg) == "string" then
 			local slash = assert(string.find(arg, "/", 0, true), "Invalid content-type, must be something/something-else.")
 			content[2]=string.sub(arg, slash+1)
@@ -472,6 +467,7 @@ do
 		else
 			error("unknown content-type format...")
 		end
+		webylene.request["Content-Type"]=table.concat(content, "/")
 	end
 end
 
@@ -482,13 +478,6 @@ function cf(...)
 		config = config[v]
 	end
 	return config
-end
-
---- extract filename from a path string. assumes unixish forward slashes.
-function extractFilename(path)
-	local i = #path
-	while i > 0 and path[i] ~= "/" do i = i-1 end
-	return path:sub(i)
 end
 
 --- does the table t contain only numeric indices?
@@ -667,15 +656,15 @@ end
 
 ---Asynchronous JSON REST helper
 do
-	require "cgilua"
-	local method = tostring(cgilua.servervariable('REQUEST_METHOD'))
 	switch_method = function(method_table, suppress_message)
+		local method = webylene.request.REQUEST_METHOD
 		if method_table[method] then
 			method_table[method]()
 		else
 			require "json"
-			cgilua.header("Status",405)
-			cgilua.header("Allow", table.concat(table.keys(method_table), ", "))
+			local headers = webylene.request.headers
+			headers['Status'] = "405 Method Not Allowed"
+			headers['Allow'] = table.concat(table.keys(method_table), ", ")
 			if not suppress_message then 
 				print(json.encode("This resource doesn't allow method " .. method .. "."))
 			end
