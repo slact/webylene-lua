@@ -457,7 +457,7 @@ do
 	
 	---self-explanatory
 	set_content_type = function(arg)
-		local content
+		local content = {}
 		if type(arg) == "string" then
 			local slash = assert(string.find(arg, "/", 0, true), "Invalid content-type, must be something/something-else.")
 			content[2]=string.sub(arg, slash+1)
@@ -467,7 +467,7 @@ do
 		else
 			error("unknown content-type format...")
 		end
-		webylene.request["Content-Type"]=table.concat(content, "/")
+		webylene.response["Content-Type"]=table.concat(content, "/")
 	end
 end
 
