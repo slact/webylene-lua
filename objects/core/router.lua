@@ -1,6 +1,5 @@
 require "rex_pcre"
 rex = rex_pcre
-
 router = {
 
 	init = function(self)
@@ -46,17 +45,6 @@ router = {
 	--- route to the 404 page. this gets its own function because it might be considered a default -- no route, so take Route 404.
 	route404 = function(self)
 		self:arriveAtDestination(self.parser:parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
-	end,
-	
-	--- stuff to do upon finishing the routing.
-	arriveAtDestination = function(self, route)
-		table.mergeWith(request.params, route.destination.param) --add route's predefined params to the REQUEST table
-		self.currentRoute = route
-		
-		event:fire("arriveAtDestination")
-		
-		--this part?...
-		dofile(webylene.path .. "/" .. self.settings.destinations.location .. "/" .. route.destination.script .. self.settings.destinations.extension)
 	end,
 	
 	--- see if the url matches the path given
@@ -172,3 +160,29 @@ router = {
 		end
 	}
 }
+
+
+do
+	local cached_scripts = {}
+	local function scriptcache(path)
+		local script_chunk
+		if not cached_scripts[path] then
+			script_chunk = loadfile(path)
+			cached_scripts[path]=script_chunk
+		else
+			script_chunk=cached_scripts[path]
+		end
+		return script_chunk
+	end
+
+		--- stuff to do upon finishing the routing.
+	router.arriveAtDestination = function(self, route)
+		table.mergeWith(request.params, route.destination.param) --add route's predefined params to the REQUEST table
+		self.currentRoute = route
+		
+		event:fire("arriveAtDestination")
+		
+		scriptcache(webylene.path .. webylene.path_separator .. self.settings.destinations.location .. webylene.path_separator .. route.destination.script .. self.settings.destinations.extension)()
+	end
+
+end 

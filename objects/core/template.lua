@@ -27,7 +27,7 @@ template = {
 	layout = false,
 	
 	discover_templates = function(self)
-		local absolutePath = webylene.path .. "/templates"
+		local absolutePath = webylene.path .. webylene.path_separator .. "templates"
 		local extension = ".lp"
 		local known_template_files = {}
 		if type(self.settings.templates) == "table" then
@@ -38,7 +38,7 @@ template = {
 		
 		local discovered = {}
 		for file in lfs.dir(absolutePath) do
-			if file ~= "." and file ~= ".."  and lfs.attributes(absolutePath .. "/" .. file, "mode")=="file" and file:sub(-#extension) == extension and not known_template_files[file] then
+			if file ~= "." and file ~= ".."  and lfs.attributes(absolutePath .. webylene.path_separator .. file, "mode")=="file" and file:sub(-#extension) == extension and not known_template_files[file] then
 				discovered[file:sub(1,-(#extension+1))]={path=file}
 			end
 		end
@@ -85,7 +85,7 @@ template = {
 	end,
 	
 	include = function(self, template, locals)
-		lp.include(webylene.path .. "/templates/" .. template.path, self:prepareLocals(locals))
+		lp.include(webylene.path .. webylene.path_separator .. "templates" .. webylene.path_separator .. template.path, self:prepareLocals(locals))
 	end,
 	
 	prepareLocals = function(self, locals)
