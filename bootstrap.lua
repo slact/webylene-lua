@@ -1,16 +1,15 @@
+local path_separator = "/"
+
 --we'll need this stuff right off the bat
 require "wsapi.request"
 require "wsapi.response"
-local path_separator = "/"
-
-
 webylene = {
-	initialize = function(self, wsapi_env)
-		assert(self:locate(wsapi_env))
+	initialize = function(self, optional_wsapi_env)
+		assert(self:locate(optional_wsapi_env))
 		local slash = path_separator
 		package.path = self.path .. slash .. "share" .. slash .. "?.lua;" .. self.path .. slash .. "share" .. slash .. "?" .. slash .. "init.lua;" .. package.path
 		self:import("core")
-		self.core:initialize(wsapi_env)
+		self.core:initialize(optional_wsapi_env)
 	end,
 	
 	wsapi_request = function(self, wsapi_env)

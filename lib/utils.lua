@@ -442,13 +442,13 @@ end
 do
 	--- wsapi write function
 	write = function(...)
-		webylene.response:write(arg)
+		webylene.response:write(...)
 	end
 	
 	--- print replacement
 	print = function(...)
 		local printResult = ""
-		for i,v in ipairs(arg) do
+		for i,v in ipairs({...}) do
 			printResult = printResult .. tostring(v) .. "\t"
 		end
 		write(printResult .. "\n")
@@ -474,7 +474,7 @@ end
 --- config retrieval function. kinda redundant, but used in other languages' versions of webylene. here for consistency.
 function cf(...)
 	local config = webylene.config
-	for i,v in ipairs(arg) do
+	for i,v in ipairs({...}) do
 		config = config[v]
 	end
 	return config

@@ -1,8 +1,6 @@
 require "lfs"
---require "wsapi"
 
 --- webylene core. this does all sorts of bootstrappity things.
--- @class module
 core = {
 	--- do stuff!!
 	run = function(self)
@@ -20,7 +18,6 @@ core = {
 		ev:start("loadConfig")
 			self:loadConfig("config", "lua")
 			self:loadConfig("config", "yaml")
-			ev:fire("configLoaded")
 		ev:finish("loadConfig")
 		
 		ev:start("initialize")	
@@ -64,11 +61,10 @@ core = {
 		}
 		
 		assert(loadFile[extension], "Config loader doesn't know what to do with the  \"." .. extension .. "\" extension.")
-		local absolutePath = webylene.path .. "/" .. relativePath
+		local absolutePath = webylene.path .. webylene.path_separator .. relativePath
 		for file in lfs.dir(absolutePath) do																				-- is this part right?...
-			if file ~= "." and file ~= ".."  and lfs.attributes(absolutePath .. "/" .. file, "mode")=="file" and file:sub(-#extension) == extension then
-				--print ("will load <" .. absolutePath .. "/" .. file .. ">\n")
-				loadFile[extension](absolutePath .. "/" .. file)
+			if file ~= "." and file ~= ".."  and lfs.attributes(absolutePath .. webylene.path_separator .. file, "mode")=="file" and file:sub(-#extension) == extension then
+				loadFile[extension](absolutePath .. webylene.path_separator .. file)
 			end
 		end
 		return self
@@ -76,13 +72,13 @@ core = {
 	
 	--- load all objects in lua files in relativePath
 	loadObjects = function(self, relativePath)
-		local absolutePath = webylene.path .. "/" .. relativePath
+		local absolutePath = webylene.path .. webylene.path_separator .. relativePath
 		local webylene = webylene -- so that we don't have to go metatable-hopping all the time
 		local extension = "lua"
 		local extension_cutoff = #extension+2 --the dot +1
 		for file in lfs.dir(absolutePath) do																				-- is this part right?...
-			if file ~= "." and file ~= ".." and lfs.attributes(absolutePath .. "/" .. file, "mode")=="file" and file:sub(-#extension) == extension then
-				webylene:importFile(absolutePath .. "/" .. file, file:sub(1, -extension_cutoff))
+			if file ~= "." and file ~= ".." and lfs.attributes(absolutePath .. webylene.path_separator .. file, "mode")=="file" and file:sub(-#extension) == extension then
+				webylene:importFile(absolutePath .. webylene.path_separator .. file, file:sub(1, -extension_cutoff))
 			end
 		end
 		return self
