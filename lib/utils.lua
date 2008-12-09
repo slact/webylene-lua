@@ -441,8 +441,8 @@ end
 
 do
 	--- wsapi write function
-	write = function(...)
-		webylene.response:write(...)
+	write = function(arg)
+		webylene.response:write(arg or "")
 	end
 	
 	--- print replacement
