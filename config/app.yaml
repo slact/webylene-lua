@@ -1,4 +1,5 @@
 database: 
+  type: mysql
   host: mysql.slact.net
   username: localuser
   password: wavylocal22

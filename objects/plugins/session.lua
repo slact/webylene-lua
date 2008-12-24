@@ -5,7 +5,6 @@ require "serialize"
 --  attaches itself to some core and sendHeaders events
 --  events
 --   - sessionReady:			signals the availability of session data. prolonged event. (fired whenever the chosen session engine feels like it)
-
 session = {
 	init = function(self)
 		event:addListener("initialize", function() 
@@ -88,7 +87,7 @@ session.storage = {
 		end,
 		
 		open = function(self)
-			assert(db.conn, "Cannot initialize database session storage: not connected to database.")
+			assert(db:connected(), "Cannot initialize database session storage: not connected to database.")
 		end,
 		
 		close = function(self)

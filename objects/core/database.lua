@@ -1,50 +1,11 @@
 require "luasql.mysql"
 
---- the database talker object. also available as webylene.db
-database = {
-	--- initialize db connection
-	init = function(self)
-		webylene.db = self -- shorthand for everyone else to use.
-		
-		event:addListener("initialize",function()
-			self.settings=cf("database") -- these will be loaded by now.
-			if not self.settings then return nil, "no database config. ain't even gonna try to connect" end
-			self.env = luasql.mysql()
-		end)
-		event:addStartListener("request", function()
-			--connect
-			self.conn = assert(self.env:connect(self.settings.db, self.settings.username, self.settings.password, self.settings.host, self.settings.port or 3306))
-			
-			setmetatable(self, 
-				setmetatable({__index=self.conn}, {__mode='v'})
-			)
-			event:start("databaseReady")
-		end)
-		
-		event:addFinishListener("request", function()
-			event:finish("databaseReady")
-			--disconnect
-			if self.conn then 
-				self.conn:close()
-				self.conn = nil
-			end
-		end)
-	end,
-	
-	
-	
-	--- perform an SQL query. returns a cursor for SELECT queries, number of rows touched for all other queries,(nil, error) on error.
+local db_methods = {
+--- perform an SQL query. returns a cursor for SELECT queries, number of rows touched for all other queries,(nil, error) on error.
 	-- @param str query
 	-- @return query result or [nil, err_message] on error
 	query = function(self, str)
-		-- DEBUGGY STUFF
-		--require "gettimeofday" -- temp needed for debugging
-		--local start = os.gettimeofday()
-		local res, err = self.conn:execute(str)
-		--local finish = os.gettimeofday()
-		--if (finish - start) > 0.05 then
-		--	logger:info("Unusually long query: '" .. str .. "' took " .. (finish - start) .. "msec")
-		--end
+		local res, err = self.connection:execute(str)
 		if res == nil then
 			return nil, err .. ". QUERY WAS: " .. str
 		end
@@ -88,7 +49,7 @@ database = {
 	
 	--- perform query, return results as a table.
 	niceQuery = function(self, str)
-		local cur, err = self.conn:execute(str)
+		local cur, err = self.connection:execute(str)
 		if not cur then
 			return cur, err
 		end
@@ -103,7 +64,7 @@ database = {
 	--- escape quotes n' such to avoid an SQL injection
 	-- @param str string to escape
 	esc = function(self, str)
-		return self.conn:escape(str)
+		return self.connection:escape(str)
 	end,
 	
 	--- format a time to sql-standard date format
@@ -131,14 +92,89 @@ database = {
 	end,
 	
 	commit = function(self)
-		return self.conn:commit()
+		return self.connection:commit()
 	end,
 	
 	setautocommit = function(self, bool)
-		return self.conn:setautocommit(bool)
+		return self.connection:setautocommit(bool)
 	end,
 	
 	rollback = function(self)
-		return self.conn:rollback()
+		return self.connection:rollback()
 	end
+}
+local db_mt = {__index=db_methods}
+
+
+--- the database class.
+--- database connection will be available as webylene.db
+database = {
+	--- initialize db connection
+	init = function(self)
+		
+		--TODO: rework this stuff to make compatible with persistent connections.
+		
+		local db_settings, db_instance -- upvalues, baby, upvalues.
+		
+		event:addListener("initialize",function()
+			db_settings=cf("database") -- these will be loaded by now.
+			if not db_settings then return nil, "no database config. ain't even gonna try to connect" end
+			db_instance = assert(self:new(db_settings.type))
+			webylene.db = db_instance --- ############ Let this not slip by thine eyes ############
+		end)
+		event:addStartListener("request", function()
+			--connect
+			assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306))
+			event:start("databaseReady")
+		end)
+		
+		event:addFinishListener("request", function()
+			event:finish("databaseReady")
+			--disconnect
+			if db_instance:connected() then 
+				db_instance:close()
+				--db_instance = nil --no, keep these around
+				--webylene.db = nil
+			end
+		end)
+	end,
+	
+	--- new db connection object maybe? (doesn't actually connect, that happens later.
+	new = function(self, database_type) 
+		if not database_type then 
+			return nil, "no database type specified..."
+		elseif type(database_type)~='string' then 
+			return nil, "unrecognized database type " .. tostring(database_type) 
+		end
+		
+		require(string.format("luasql.%s", database_type))
+		local env = luasql[database_type]()
+		return setmetatable({
+			connect = function(self, ...)
+				self.connected = function(self)
+					return self.connection and true
+				end
+				
+				local args = {...} -- i want this for the cloning
+				
+				self.clone = function(self) -- love them closures, eh?
+					return database:new(database_type):connect(unpack(args))
+				end
+				
+				self.connection, err = env:connect(...)
+				if not self.connection then return nil, err end
+				return self 
+			end,
+			close = function(self)
+				if self.connection:close() then
+					self.connection = nil
+					return self
+				else 
+					return nil, "can't close connection -- it's still being used."
+				end
+			end,	
+			query = db_methods.query -- speed hack. is it desired, or just ugly?
+		}, db_mt)
+	end
+	
 }
