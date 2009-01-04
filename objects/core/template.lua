@@ -54,7 +54,7 @@ template = {
 	
 	--- template output workhorse. mostly for internal use only. 
 	pageOut = function(self, templateName, locals)
-		assert(self.settings.templates[templateName], "no such template <" .. templateName .. ">")
+		assert(self.settings.templates[templateName], "template '" .. templateName .. "' not found")
 		
 		locals = locals or {}
 		

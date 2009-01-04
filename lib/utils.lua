@@ -441,17 +441,15 @@ end
 
 do
 	--- wsapi write function
-	write = function(arg)
-		webylene.response:write(arg or "")
+	write = function(...)
+		for i, arg in ipairs({...}) do
+			webylene.response:write(arg and tostring(arg) or "")
+		end
 	end
 	
 	--- print replacement
 	print = function(...)
-		local printResult = ""
-		for i,v in ipairs({...}) do
-			printResult = printResult .. tostring(v) .. "\t"
-		end
-		write(printResult .. "\n")
+		write(table.concat({...},"\t") .. "\n")
 	end
 	
 	
