@@ -1,5 +1,5 @@
 require "lfs"
-
+local webylene = webylene
 --- webylene core. this does all sorts of bootstrappity things.
 core = {
 	--- do stuff!!

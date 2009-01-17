@@ -1,7 +1,6 @@
-require "rex_pcre"
-rex = rex_pcre
+local rex = require "rex_pcre"
+local webylene = webylene
 router = {
-
 	init = function(self)
 		--set our configgy stuff
 		event:addListener("initialize",function()
@@ -163,26 +162,20 @@ router = {
 
 
 do
-	local cached_scripts = {}
-	local function scriptcache(path)
-		local script_chunk
-		if not cached_scripts[path] then
-			script_chunk = loadfile(path)
-			cached_scripts[path]=script_chunk
-		else
-			script_chunk=cached_scripts[path]
-		end
-		return script_chunk
-	end
+	local scriptcache = setmetatable({}, {__index=function(t, absolute_path)
+		local chunk = assert(loadfile(absolute_path))
+		rawset(t, absolute_path, chunk)
+		return chunk
+	end})
 
 		--- stuff to do upon finishing the routing.
 	router.arriveAtDestination = function(self, route)
-		table.mergeWith(request.params, route.destination.param) --add route's predefined params to the REQUEST table
+		table.mergeWith(request.params, route.destination.param) --add route's predefined params to the params table
 		self.currentRoute = route
 		
 		event:fire("arriveAtDestination")
 		
-		scriptcache(webylene.path .. webylene.path_separator .. self.settings.destinations.location .. webylene.path_separator .. route.destination.script .. self.settings.destinations.extension)()
+		scriptcache[webylene.path .. webylene.path_separator .. self.settings.destinations.location .. webylene.path_separator .. route.destination.script .. self.settings.destinations.extension]()
 	end
 
 end 

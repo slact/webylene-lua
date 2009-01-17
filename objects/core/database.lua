@@ -1,5 +1,4 @@
-require "luasql.mysql"
-
+local webylene, event = webylene, event
 local db_methods = {
 --- perform an SQL query. returns a cursor for SELECT queries, number of rows touched for all other queries,(nil, error) on error.
 	-- @param str query
@@ -146,8 +145,8 @@ database = {
 		elseif type(database_type)~='string' then 
 			return nil, "unrecognized database type " .. tostring(database_type) 
 		end
-		
-		require(string.format("luasql.%s", database_type))
+		local luasql_dbtype = string.format("luasql.%s", database_type)
+		require(luasql_dbtype)
 		local env = luasql[database_type]()
 		return setmetatable({
 			connect = function(self, ...)
@@ -161,7 +160,8 @@ database = {
 					return database:new(database_type):connect(unpack(args))
 				end
 				
-				self.connection, err = env:connect(...)
+				local connection, err = env:connect(...)
+				self.connection = connection
 				if not self.connection then return nil, err end
 				return self 
 			end,

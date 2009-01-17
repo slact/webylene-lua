@@ -165,8 +165,8 @@ function table.flipped(tbl)
 	return flippy
 end
 
--- returns a slice of the table with the start and end being the numeric keys beginning and End. if End is not specified, assumes #tbl
-function table.slice(tbl, beginning, End)
+-- returns a slice of the table with the start and end being the numeric keys start and End. if End is not specified, assumes #tbl
+function table.slice(tbl, start, End)
 	local ret = {}
 	End = End or #tbl
 	if not start then return tbl end

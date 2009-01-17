@@ -75,7 +75,7 @@ webylene = {
 	--- import contents of a file as webylene[object_name]
 	-- @see webylene.importChunk
 	importFile = function(self, file_path, object_name)
-		local object_name = object_name or extractFilename(file_path):sub(1, (-#".lua"-1))
+		local object_name = object_name or (string.match(path_separator .. file_path, ".*[^\\]"..path_separator.."(.-)$")):sub(1, -5)
 		if rawget(self, object_name) ~= nil then
 			return self[object_name]
 		end

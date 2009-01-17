@@ -15,10 +15,10 @@ crisp = {
 	end,
 	
 	--- attach a function to be called when it's time to remove a crisp. function gets passed the crisp value.
-	-- @param string crisp crisp name
+	-- @param string name crisp name
 	-- @param function func function name. func([crisp val], [crisp name]) will be called when it's time to delete the crisp.
 	-- @return boolean 	 	  
-	addCleaner = function(self, crisp, func)
+	addCleaner = function(self, name, func)
 		if self.crisps[name] and type(func)=="function" then
 			table.insert(session.data.crisps[name].cleaners, func)
 		else
@@ -30,14 +30,14 @@ crisp = {
 	
 
 	--- reset all cleaners associated with a crisp
-	resetCleaners = function(self, crisp)
+	resetCleaners = function(self, name)
 		if not self.crisps[name] then return false end
 		self.crisps[name].cleaners={}
 		return self
 	end,
 	
 	--- retrieve crisp value	 	
-	get = function (self, crisp)
+	get = function (self, name)
 		if self.crisps[name] then
 			return self.crisps[name].val
 		end
