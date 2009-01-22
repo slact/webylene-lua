@@ -29,9 +29,10 @@ template = {
 	
 	layout = false,
 	
-	discover_templates = function(self)
-		local absolutePath = webylene.path .. webylene.path_separator .. "templates"
-		local extension = ".lp"
+	discover_templates = function(self, extension) --recursive traversal of templates/ for, um, templates...
+		local slash = webylene.path_separator
+		local templates_prefix = webylene.path .. slash .. "templates" .. slash
+		local extension = extension or ".lp"
 		local known_template_files = {}
 		if type(self.settings.templates) == "table" then
 			for i,v in pairs(self.settings.templates) do
@@ -40,11 +41,25 @@ template = {
 		end
 		
 		local discovered = {}
-		for file in lfs.dir(absolutePath) do
-			if file ~= "." and file ~= ".."  and lfs.attributes(absolutePath .. webylene.path_separator .. file, "mode")=="file" and file:sub(-#extension) == extension and not known_template_files[file] then
-				discovered[file:sub(1,-(#extension+1))]={path=file}
+		local err = {}
+		local function discover(path)
+			path = path or ""
+			local thispath = templates_prefix .. path
+			table.insert(err, "take a look at " .. thispath)
+			for entry in lfs.dir(thispath) do
+				if entry ~= "." and entry ~= ".." then
+					local mode = lfs.attributes(thispath .. entry, "mode")
+					if mode =="file" and entry:sub(-#extension) == extension and not known_template_files[path .. entry] then
+						table.insert(err, "entry is a file: " .. entry)
+						discovered[path .. entry:sub(1,-(#extension+1))]={path=path .. entry}
+					elseif mode == "directory" then 
+						table.insert(err, "entry is a directory: " .. entry)	
+						discover(path .. entry .. slash)
+					end
+				end
 			end
 		end
+		discover()
 		return discovered
 	end, 
 	
