@@ -1,5 +1,14 @@
 local rex = require "rex_pcre"
 local webylene = webylene
+
+--cachy, cachy
+local url_rex = rex.new("^((?P<scheme>(?:http|ftp)s?)://(?:(?P<userinfo>\w+(?::\w+)?)@)?(?P<hostname>[^/:]+)(:(?P<port>[0-9]+))?)?(?P<path>/[^?#]*)?(?:\\?(?P<query>[^#]*))?(?:#(?P<fragment>.*))?$")
+local path_regex = setmetatable({}, {__index=function(t,match_str)
+	local r = rex.new("^" .. match_str .. "$")
+	rawset(t, match_str, r)
+	return r
+end})
+
 router = {
 	init = function(self)
 		--set our configgy stuff
@@ -9,9 +18,8 @@ router = {
 		
 		--route when it's time to do so
 		event:addListener("route", function()
-			self:route(request.SCRIPT_URI)
+			self:route(request.SCRIPT_URI or request.env.REQUEST_URI)
 		end)
-		
 	end,
 	
 	--- parse a uri into its parts. returns a table with keys:
@@ -23,9 +31,8 @@ router = {
 	-- query	= query string, excluding leading ? character
 	-- fragment	= part of url after the # character
 	parseurl = function(self, url) 
-		local url_rex = rex.new("((?P<scheme>(?:http|ftp)s?)://(?:(?P<userinfo>\w+(?::\w+)?)@)?(?P<hostname>[^/:]+)(:(?P<port>[0-9]+))?)?(?P<path>/[^?#]*)?(?:\\?(?P<query>[^#]*))?(?:#(?P<fragment>.*))?")
-		local res = {url_rex:tfind(url)}
-		return res[3]
+		local start, finish, res = url_rex:tfind(url)
+		return res
 	end,
 
 	--- perform the routing, besed on the uri given
@@ -64,10 +71,10 @@ router = {
 			--path urls. it's an and.
 			if self:oughtToRegex(furl) then
 				--regex comparison
-				local matches = {rex.new("^" .. furl .. "$"):exec(url)}
-				if #matches ~= 0 then --the regexp matched!
+				local start, finish, matches = path_regex[furl]:exec(url or "")
+				if matches then --the regexp matched!
 					local params = request.params
-					for name, val in pairs(matches[3]) do
+					for name, val in pairs(matches) do
 					--expand named regex captures into REQUEST parameters
 						if type(name) == "string" and val ~= false then
 							params[name]=val
@@ -168,7 +175,7 @@ do
 		return chunk
 	end})
 
-		--- stuff to do upon finishing the routing.
+	--- stuff to do upon finishing the routing.
 	router.arriveAtDestination = function(self, route)
 		table.mergeWith(request.params, route.destination.param) --add route's predefined params to the params table
 		self.currentRoute = route

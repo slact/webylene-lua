@@ -4,6 +4,9 @@ local db_methods = {
 	-- @param str query
 	-- @return query result or [nil, err_message] on error
 	query = function(self, str)
+		
+		--assert(self.logging_conn:execute(("INSERT INTO logsql SET connection = '%s', query= '%s', stack='%s'"):format(self:esc(tostring(self.connection)), self:esc(str), self:esc(debug.traceback("", 2)))))
+		
 		local res, err = self.connection:execute(str)
 		if res == nil then
 			return nil, err .. ". QUERY WAS: " .. str
@@ -153,15 +156,14 @@ database = {
 				self.connected = function(self)
 					return self.connection and true
 				end
-				
-				local args = {...} -- i want this for the cloning
-				
+				local arg = {...}
 				self.clone = function(self) -- love them closures, eh?
-					return database:new(database_type):connect(unpack(args))
+					return database:new(database_type):connect(unpack(arg))
 				end
 				
-				local connection, err = env:connect(...)
+				local connection, err = env:connect(unpack(arg))
 				self.connection = connection
+				--self.logging_conn = env:connect(unpack(arg))
 				if not self.connection then return nil, err end
 				return self 
 			end,
