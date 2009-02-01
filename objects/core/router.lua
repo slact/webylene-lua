@@ -31,7 +31,11 @@ router = {
 		
 		--route when it's time to do so
 		event:addListener("route", function()
-			self:route(request.SCRIPT_URI or request.env.REQUEST_URI)
+			local uri = request.SCRIPT_URI
+			if not uri or #uri==0 then
+				uri = request.env.REQUEST_URI
+			end
+			self:route(uri)
 		end)
 	end,
 
@@ -45,7 +49,7 @@ router = {
 			end
 		end
 		--no route matched. 404 that sucker.
-		self:route404()
+		self:route404(url)
 	end,
 	
 	--- route to the 404 page. this gets its own function because it might be considered a default -- no route, so take Route 404.
