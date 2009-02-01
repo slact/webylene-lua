@@ -132,11 +132,11 @@ insider = setmetatable({
 	
 	pageTitle = function()
 		--print(table.show(webylene.router.currentRoute))
-		return webylene.router.currentRoute.param.title
+		return router:getTitle()
 	end,
 	
 	ref = function()
-		return webylene.router.currentRoute.param.ref
+		return router:getRef()
 	end,
 	
 	url_encode = wsapi.util.url_encode,

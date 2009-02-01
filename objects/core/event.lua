@@ -97,6 +97,14 @@ do
 			end
 			table.insert(listeners[eventName].finish, listener) --add the event!
 			return self
+		end,
+		
+		reset = function(self)
+			activeEvents = {}
+			for i, v in pairs(listeners) do
+				rawset(listeners, i, nil)
+			end
+			return self
 		end
 	}	
 end 

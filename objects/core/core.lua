@@ -78,7 +78,8 @@ core = {
 		local extension_cutoff = #extension+2 --the dot +1
 		for file in lfs.dir(absolutePath) do																				-- is this part right?...
 			if file ~= "." and file ~= ".." and lfs.attributes(absolutePath .. webylene.path_separator .. file, "mode")=="file" and file:sub(-#extension) == extension then
-				webylene:importFile(absolutePath .. webylene.path_separator .. file, file:sub(1, -extension_cutoff))
+				local name = file:sub(1, -extension_cutoff)
+				if not webylene[name] then webylene:importFile(absolutePath .. webylene.path_separator .. file, file:sub(1, -extension_cutoff)) end
 			end
 		end
 		return self
