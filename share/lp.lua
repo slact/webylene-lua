@@ -15,7 +15,7 @@ module (...)
 -- function to do output
 local outfunc = "io.write"
 -- accepts the old expression field: `$| <Lua expression> |$'
-local compatmode = true
+local compatmode = false
 
 --
 -- Builds a piece of Lua code which outputs the (part of the) given string.
@@ -86,6 +86,10 @@ function setcompatmode (c)
 	compatmode = c
 end
 
+local use_cache = true
+function usecache(use_it)
+	use_cache = use_it
+end
 ----------------------------------------------------------------------------
 -- Internal compilation cache.
 
@@ -100,12 +104,18 @@ local cache = {}
 -- @return Function with the resulting translation.
 
 function compile (string, chunkname)
-	local f, err = cache[string]
-	if f then return f end
-	f, err = loadstring (translate (string), chunkname)
-	if not f then error (err, 3) end
-	cache[string] = f
-	return f
+	if use_cache then
+		local f, err = cache[string]
+		if f then return f end
+		f, err = loadstring (translate (string), chunkname)
+		if not f then error (err, 3) end
+		cache[string] = f
+		return f
+	else
+		local f, err = loadstring (translate (string), chunkname)
+		if not f then error (err, 3) end
+		return f
+	end
 end
 
 ----------------------------------------------------------------------------

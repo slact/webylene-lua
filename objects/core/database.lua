@@ -124,10 +124,10 @@ database = {
 			db_instance = assert(self:new(db_settings.type))
 			webylene.db = db_instance --- ############ Let this not slip by thine eyes ############
 		end)
-		
-		if db_settings.persist=="true" then
+		if db_settings.persist==true or db_settings.persist == "true" then
 			assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306))
 			event:addStartListener("request", function()
+				if not db_instance:connected() then assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306)) end
 				event:start("databaseReady")
 			end)
 			
