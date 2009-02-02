@@ -72,33 +72,34 @@ template = {
 	
 	--- template output workhorse. mostly for internal use only. 
 	pageOut = function(self, templateName, locals)
-		assert(self.settings.templates[templateName], "template '" .. templateName .. "' not found")
+		local sets = self.settings
+		local template_settings = self.settings.templates[templateName]
+		assert(template_settings, "template '" .. templateName .. "' not found")
 		
 		locals = locals or {}
-		
-		local layout = self.layout or self.settings.layouts.default
+		local layout = self.layout or sets.layouts.default
 		
 
-		local template_data = self.settings.templates[templateName].data
+		local template_data = template_settings.data
 		if template_data then
 			table.mergeWith(locals, template_data)
 		end
 		
-		if self.settings.templates[templateName].stub or self.settings.templates[templateName].standalone or not layout then
-			self:include(self.settings.templates[templateName], locals)
+		if template_settings.stub or template_settings.standalone or not layout then
+			self:include(template_settings, locals)
 		else
-			locals.child = self.settings.templates[templateName] --let the layout know what to include
+			locals.child = template_settings --let the parent template know what to include
 			
 			local templateRefs, layoutRefs
 			for i,ref in pairs({"css","js"}) do
-				templateRefs = self.settings.templates[templateName][ref] or {}
-				layoutRefs   = self.settings.templates[layout][ref] or {}
+				templateRefs = template_settings[ref] or {}
+				layoutRefs   = sets.templates[layout][ref] or {}
 				locals[ref] = table.merge(templateRefs, layoutRefs)
 			end
 			
 			--TODO: add recursive parent support. this might involve reworking this whole thing.
 			
-			self:include(self.settings.templates[layout], locals)
+			self:include(sets.templates[layout], locals)
 		end
 	end,
 	
@@ -109,14 +110,24 @@ template = {
 }
 
 do
-	local memoized_path = setmetatable({}, {__mode='k'})
+	-- mmm, cache...
+	local memoized_path = setmetatable({}, {__mode='k', __index = function(t,template)
+		local absolute_path = webylene.path .. webylene.path_separator .. "templates" .. webylene.path_separator .. template.path
+		rawset(t, template, absolute_path)
+		return absolute_path
+	end})
+	local memoized_chunk = setmetatable({}, {__index=function(t,filename)
+		local fh = assert(io.open(filename))
+		local src = fh:read("*a")
+		fh:close()
+		-- translates the file into a function
+		local prog = lp.compile(src, '@'..filename)
+		rawset(t, filename, prog)
+		return prog
+	end})
+	
 	template.include = function(self, template, locals)
-		local absolute_path = memoized_path[template]
-		if not absolute_path then
-			absolute_path = webylene.path .. webylene.path_separator .. "templates" .. webylene.path_separator .. template.path
-			memoized_path[template] = absolute_path
-		end
-		lp.include(absolute_path, self:prepareLocals(locals))
+		setfenv(memoized_chunk[memoized_path[template]], self:prepareLocals(locals))()
 	end	
 end
 
