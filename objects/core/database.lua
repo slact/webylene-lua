@@ -124,21 +124,42 @@ database = {
 			db_instance = assert(self:new(db_settings.type))
 			webylene.db = db_instance --- ############ Let this not slip by thine eyes ############
 		end)
-		event:addStartListener("request", function()
-			--connect
-			assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306))
-			event:start("databaseReady")
-		end)
 		
-		event:addFinishListener("request", function()
-			event:finish("databaseReady")
-			--disconnect
-			if db_instance:connected() then 
-				db_instance:close()
-				--db_instance = nil --no, keep these around
-				--webylene.db = nil
-			end
-		end)
+		if db_settings.persist=="true" then
+			assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306))
+			event:addStartListener("request", function()
+				event:start("databaseReady")
+			end)
+			
+			event:addFinishListener("request", function()
+				event:finish("databaseReady")
+				--disconnect
+			end)
+			
+			event:addListener("shutdown", function()
+				if db_instance:connected() then 
+					db_instance:close()
+					--db_instance = nil --no, keep these around
+					--webylene.db = nil
+				end
+			end)
+		else
+			event:addStartListener("request", function()
+				--connect
+				assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306))
+				event:start("databaseReady")
+			end)
+			
+			event:addFinishListener("request", function()
+				event:finish("databaseReady")
+				--disconnect
+				if db_instance:connected() then 
+					db_instance:close()
+					--db_instance = nil --no, keep these around
+					--webylene.db = nil
+				end
+			end)
+		end
 	end,
 	
 	--- new db connection object maybe? (doesn't actually connect, that happens later.
