@@ -268,7 +268,7 @@ function dump(tbl)
 		elseif t == "string" then return string.format('%q', thing)
 		elseif t == "number" then return tostring(thing)
 		elseif t == "table" then
-			if tablestack[thing] then return string.format("%s (recursion)", tostring(thing)) end
+			if tablestack and tablestack[thing] then return string.format("%s (recursion)", tostring(thing)) end
 			local kids, pre, substack = {}, "	" .. prefix, (tablestack and tcopy(tablestack) or {})
 			substack[thing]=true	
 			for k, v in pairs(thing) do
