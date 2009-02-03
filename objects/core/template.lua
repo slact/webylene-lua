@@ -87,7 +87,7 @@ template = {
 		end
 		
 		if template_settings.stub or template_settings.standalone or not layout then
-			self:include(template_settings, locals)
+			return self:include(template_settings, locals)
 		else
 			locals.child = template_settings --let the parent template know what to include
 			
@@ -100,7 +100,7 @@ template = {
 			
 			--TODO: add recursive parent support. this might involve reworking this whole thing.
 			
-			self:include(sets.templates[layout], locals)
+			return self:include(sets.templates[layout], locals)
 		end
 	end,
 	
@@ -128,7 +128,11 @@ do
 	end})
 	
 	template.include = function(self, template, locals)
-		setfenv(memoized_chunk[memoized_path[template]], self:prepareLocals(locals))()
+		local success, err = pcall(setfenv(memoized_chunk[memoized_path[template]], self:prepareLocals(locals)))
+		if not success then 
+			if webylene.config.show_errors==true then print(err) end
+			logger:error(err)
+		end
 	end	
 end
 

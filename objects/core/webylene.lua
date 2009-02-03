@@ -68,7 +68,12 @@ do
 	--- load a library (heap o' functions) from webylene root/lib/[lib_name].lua
 	webylene.loadlib = function(self, lib_name)
 		if not libsLoaded[lib_name] then
-			assert(loadfile(self.path .. path_separator .. "lib" .. path_separator .. lib_name .. ".lua"), string.format("%s.lua not found in " .. self.path .. path_separator .. "lib" .. path_separator , lib_name))()
+			local chunk, err = loadfile(self.path .. path_separator .. "lib" .. path_separator .. lib_name .. ".lua")
+			if chunk then 
+				chunk()
+			else
+				error(err, 0) 
+			end
 			libsLoaded[lib_name]=true
 		end
 		return self
@@ -85,13 +90,20 @@ do
 		elseif notFound[object_name] then
 			return nil
 		end
-		local f, path, result
+		local result
+		local path =  self.path .. path_separator .. "%s" .. path_separator .. object_name .. ".lua"
 		for i,dir in pairs(object_dirs) do
-
-			path = self.path .. path_separator .. dir .. path_separator .. object_name .. ".lua"
-			f = io.open(path, "r")
+			local mypath = path:format(dir)
+			-- this is wasteful, but I don't see a better way to differentiate between 
+			-- file-not-found errors and parsing errors while having lua think it's 
+			-- processing a file and not some string.
+			-- if anyone has any suggestions, i'd be perfecly glad to get rid of this unsightly code.
+			local f = io.open(mypath, "r")
 			if f then
-				result = self:importChunk(assert(loadstring(f:read("*all"), dir .. path_separator .. object_name .. ".lua")), object_name)
+				f:close()
+				local chunk, err = loadfile(mypath)
+				if not chunk then error(err, 0) end
+				result = self:importChunk(chunk, object_name)
 				if result ~= nil then
 					return result
 				end

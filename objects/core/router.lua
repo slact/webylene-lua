@@ -60,9 +60,10 @@ router = {
 	
 	--if there was an error executing a page script
 	route500 = function(self, error_message, trace)
+		logger:error(error_message)
 		local d500 = self.settings["500"]
 		assert(d500, error_message .. ". Additionally, 500 page handler script not found -- bailing.")
-		self:arriveAtDestination(parser:parseRoute({path=" ", ref="500", destination=self.settings["500"], param={error=error_message, trace=trace}}))
+		self:arriveAtDestination(parser:parseRoute({path=" ", ref="500", destination=self.settings["500"], param={error=error_message, trace=trace}}), true)
 	end,
 		
 	setTitle = function(self, title)
@@ -209,20 +210,23 @@ do
 	local scriptcache = setmetatable({}, {__index=function(t, absolute_path)
 		local chunk, err = loadfile(absolute_path)
 		if not chunk then 
-			return function() error("syntax error: " .. err, 0) end 
+			return function() error(err, 0) end 
 		end
 		rawset(t, absolute_path, chunk)
 		return chunk
 	end})
 	
 	--- stuff to do upon finishing the routing.
-	router.arriveAtDestination = function(self, route)
+	router.arriveAtDestination = function(self, route, unprotected)
 		table.mergeWith(request.params, route.param) --add route's predefined params to the params table
 		self.currentRoute = route
 		
 		event:fire("arriveAtDestination")
-		
-		return mypcall(scriptcache[script_printf_path:format(route.destination.script)])
+		if not unprotected then
+			return mypcall(scriptcache[script_printf_path:format(route.destination.script)])
+		else
+			return assert(scriptcache[script_printf_path:format(route.destination.script)])()
+		end
 	end
 end 
 
