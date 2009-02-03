@@ -51,8 +51,8 @@ function translate (s)
 		s = gsub(s, "<!%-%-$$(.-)$$%-%->", "<?lua %1 ?>")
 	end
 	if truncate_whitespace then 
-		s = gsub(s, "\n?%s*(%s?)<%%(.-)%%>", " <%%%2%%>") --footprinty whitespace eliminator
-		s = gsub(s, "<%%(.-)%%>(%s?)%s*\n?", "<%%%1%%> ") --footprinty whitespace eliminator
+		s = gsub(s, "\n?%s+(%s?)<%%(.-)%%>", " <%%%2%%>") --footprinty whitespace eliminator
+		s = gsub(s, "<%%(.-)%%>(%s?)%s+\n?", "<%%%1%%> ") --footprinty whitespace eliminator
 	end
 	s = gsub(s, "<%%(.-)%%>", "<?lua %1 ?>")
 	
