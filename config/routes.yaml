@@ -21,6 +21,7 @@ router:
     - captcha: /captcha
   
   '404': 404
+  '500': 500
   
   matchFiles: true
   

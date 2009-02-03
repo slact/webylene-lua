@@ -1,4 +1,4 @@
-#!/usr/bin/env lua
+#!/usr/bin/env luajit
 local path_separator = "/"
 local protocol, path
 for i, a in ipairs(arg) do
@@ -45,7 +45,13 @@ elseif protocol=="fastcgi" or protocol=="fcgi" or protocol=="wsapi" then
 		if not success then -- bad, bad error. recover
 			init()
 			webylene.logger:fatal(status .. " ... had to reboot webylene.")
-			return 500, {['Content-Type']='text/plain'}, coroutine.wrap(function() coroutine.yield("A bad error happened. We'll fix it, we promise!") end)
+			return 500, {['Content-Type']='text/plain'}, coroutine.wrap(function() 
+				if webylene and webylene.config.show_errors==true then 
+					coroutine.yield("ERROR: " .. status) 
+				else
+					coroutine.yield("A bad error happened. We'll fix it, we promise!")
+				end
+			end)
 		end
 		return status, headers, iterator
 	end)

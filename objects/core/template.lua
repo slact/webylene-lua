@@ -1,4 +1,5 @@
 require "lp"
+lp.setoutfunc("printee")
 require "wsapi.util"
 local webylene, event, cf= webylene, event, cf
 local insider --stuff available from inside a template

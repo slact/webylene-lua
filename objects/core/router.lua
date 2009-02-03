@@ -1,7 +1,7 @@
 local rex = require "rex_pcre"
 local webylene = webylene
 local parser
-
+local script_printf_path
 --cachy, cachy
 local url_rex = rex.new("^((?P<scheme>(?:http|ftp)s?)://(?:(?P<userinfo>\w+(?::\w+)?)@)?(?P<hostname>[^/:]+)(:(?P<port>[0-9]+))?)?(?P<path>/[^?#]*)?(?:\\?(?P<query>[^#]*))?(?:#(?P<fragment>.*))?$")
 --- parse a uri into its parts. returns a table with keys:
@@ -26,7 +26,8 @@ router = {
 	init = function(self)
 		--set our configgy stuff
 		event:addListener("initialize",function()
-			self.settings=cf("router") or error("No router config found. bailing.")
+			self.settings=assert(cf("router"), "No router config found. bailing.")
+			script_printf_path = webylene.path .. webylene.path_separator .. self.settings.destinations.location .. webylene.path_separator .. "%s" .. self.settings.destinations.extension
 		end)
 		
 		--route when it's time to do so
@@ -57,6 +58,13 @@ router = {
 		self:arriveAtDestination(parser:parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
 	end,
 	
+	--if there was an error executing a page script
+	route500 = function(self, error_message, trace)
+		local d500 = self.settings["500"]
+		assert(d500, error_message .. ". Additionally, 500 page handler script not found -- bailing.")
+		self:arriveAtDestination(parser:parseRoute({path=" ", ref="500", destination=self.settings["500"], param={error=error_message, trace=trace}}))
+	end,
+		
 	setTitle = function(self, title)
 		
 	end,
@@ -164,33 +172,57 @@ parser = {
 	end,
 	
 	parseRoute = function(self, contents)
-		local route = {}
 		assert(type(contents) == "table", "expected route to be a table, found a " .. type(contents) .. " instead. Check config/routes.yaml")
 		local key, val = next(contents) -- key may be the route target, or nothing important. 
 		local baseParam = self:extractBaseParam((table.length(contents) == 1) and val or contents)
-		route.path = self:path(contents.path or val) --path or first value in contents
-		route.destination = self:destination(contents.destination or key) --destination or first key in contents
-		route.param = self:param(table.mergeRecursivelyWith(baseParam, contents.param))
+		local route = {
+			path=self:path(contents.path or val), --path or first value in contents
+			destination = self:destination(contents.destination or key), --destination or first key in contents
+			param = self:param(table.mergeRecursivelyWith(baseParam, contents.param))
+		}
 		route.param.ref = route.param.ref or route.destination.script -- auto-ref
 		return route
 	end
 }
 
 do
+	local function tracy(err)
+		local trace
+		if debug and debug.traceback then
+			trace = debug.traceback("", 2)
+		end
+		return {error=err, trace=trace}
+	end
+	
+	local function mypcall(func)
+		local success, res = xpcall(
+			func,
+			tracy
+		)
+		if not success then 
+			return nil, router:route500(res.error, res.trace) 
+		else
+			return res
+		end
+	end
+	
 	local scriptcache = setmetatable({}, {__index=function(t, absolute_path)
-		local chunk = assert(loadfile(absolute_path))
+		local chunk, err = loadfile(absolute_path)
+		if not chunk then 
+			return function() error("syntax error: " .. err, 0) end 
+		end
 		rawset(t, absolute_path, chunk)
 		return chunk
 	end})
-
+	
 	--- stuff to do upon finishing the routing.
 	router.arriveAtDestination = function(self, route)
-		table.mergeWith(request.params, route.destination.param) --add route's predefined params to the params table
+		table.mergeWith(request.params, route.param) --add route's predefined params to the params table
 		self.currentRoute = route
 		
 		event:fire("arriveAtDestination")
 		
-		scriptcache[webylene.path .. webylene.path_separator .. self.settings.destinations.location .. webylene.path_separator .. route.destination.script .. self.settings.destinations.extension]()
+		return mypcall(scriptcache[script_printf_path:format(route.destination.script)])
 	end
 end 
 
@@ -205,4 +237,4 @@ end
 router.getRef=function(self)
 	if not self.currentRoute then return nil, "not yet routed" end
 	return currentRoute.param.ref
-end
+end 
