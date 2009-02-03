@@ -34,7 +34,11 @@ local function out (s, i, f)
 	return format(" %s('%s'); ", outfunc, s)
 end
 
-
+---should whitespace leading and trailing embedded lua code be truncated?
+local truncate_whitespace = true
+function set_truncate_whitespace(wh)
+	reduce_whitespace=wh
+end
 ----------------------------------------------------------------------------
 -- Translate the template to Lua code.
 -- @param s String to translate.
@@ -46,7 +50,12 @@ function translate (s)
 		s = gsub(s, "$|(.-)|%$", "<?lua = %1 ?>")
 		s = gsub(s, "<!%-%-$$(.-)$$%-%->", "<?lua %1 ?>")
 	end
+	if truncate_whitespace then 
+		s = gsub(s, "\n?%s*(%s?)<%%(.-)%%>", " <%%%2%%>") --footprinty whitespace eliminator
+		s = gsub(s, "<%%(.-)%%>(%s?)%s*\n?", "<%%%1%%> ") --footprinty whitespace eliminator
+	end
 	s = gsub(s, "<%%(.-)%%>", "<?lua %1 ?>")
+	
 	local res = {}
 	local start = 1   -- start of untranslated part in `s'
 	while true do
