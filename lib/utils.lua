@@ -301,7 +301,7 @@ do
 		end
 	end
 	
-	--- print replacement
+	--- print replacement. expects all paramenters to already be concatenable as strings
 	print = function(...)
 		write(table.concat({...},"\t") .. "\n")
 	end
