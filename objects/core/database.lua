@@ -1,5 +1,102 @@
 local webylene, event = webylene, event
-local db_methods = {
+
+local db_mt --closured
+
+--- the database class.
+--- database connection will be available as webylene.db
+database = {
+	--- initialize db connection
+	init = function(self)
+		
+		--TODO: rework this stuff to make compatible with persistent connections.
+		
+		local db_settings, db_instance -- upvalues, baby, upvalues.
+		
+		event:addListener("initialize",function()
+			db_settings=cf("database") -- these will be loaded by now.
+			if not db_settings then return nil, "no database config. ain't even gonna try to connect" end
+			db_instance = assert(self:new(db_settings.type))
+			webylene.db = db_instance --- ############ Let this not slip by thine eyes ############
+		end)
+		if db_settings.persist==true or db_settings.persist == "true" then
+			assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306))
+			event:addStartListener("request", function()
+				if not db_instance:connected() then assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306)) end
+				event:start("databaseTransaction")
+			end)
+			
+			event:addFinishListener("request", function()
+				event:finish("databaseTransaction")
+				--disconnect
+			end)
+			
+			event:addListener("shutdown", function()
+				if db_instance:connected() then 
+					db_instance:close()
+					--db_instance = nil --no, keep these around
+					--webylene.db = nil
+				end
+			end)
+		else
+			event:addStartListener("request", function()
+				--connect
+				assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306))
+				event:start("databaseTransaction")
+			end)
+			
+			event:addFinishListener("request", function()
+				event:finish("databaseTransaction")
+				--disconnect
+				if db_instance:connected() then 
+					db_instance:close()
+					--db_instance = nil --no, keep these around
+					--webylene.db = nil
+				end
+			end)
+		end
+	end,
+	
+	--- new db connection object maybe? (doesn't actually connect, that happens later.
+	new = function(self, database_type) 
+		if not database_type then 
+			return nil, "no database type specified..."
+		elseif type(database_type)~='string' then 
+			return nil, "unrecognized database type " .. tostring(database_type) 
+		end
+		local luasql_dbtype = string.format("luasql.%s", database_type)
+		require(luasql_dbtype)
+		local env = luasql[database_type]()
+		return setmetatable({
+			connect = function(self, ...)
+				self.connected = function(self)
+					return self.connection and true
+				end
+				local arg = {...}
+				self.clone = function(self) -- love them closures, eh?
+					return database:new(database_type):connect(unpack(arg))
+				end
+				
+				local connection, err = env:connect(unpack(arg))
+				self.connection = connection
+				--self.logging_conn = env:connect(unpack(arg))
+				if not self.connection then return nil, err end
+				return self 
+			end,
+			close = function(self)
+				if self.connection:close() then
+					self.connection = nil
+					return self
+				else 
+					return nil, "can't close connection -- it's still being used."
+				end
+			end,	
+			query = db_mt.__index.query -- speed hack. is it desired, or just ugly?
+		}, db_mt)
+	end	
+}
+
+--database instance methods
+db_mt = { __index = {
 --- perform an SQL query. returns a cursor for SELECT queries, number of rows touched for all other queries,(nil, error) on error.
 	-- @param str query
 	-- @return query result or [nil, err_message] on error
@@ -30,15 +127,14 @@ local db_methods = {
 	
 	--- returns a table containing all result rows for a given cursor
 	-- @param cur database query cursor. undefined behavior if cur is anything else.
-	-- @return 
+	-- @return table of resulting rows or nil, err on error
 	results = function(self, cur)
 		local res = {}
 		for row in self:rows(cur) do
 			table.insert(res, row)
 		end
 		return res
-	end,
-	
+	end,	
 	
 	--- returns first row of query result cursor.
 	-- behavior undefined if cur isn't a valid database result cursor
@@ -50,6 +146,7 @@ local db_methods = {
 	end,
 	
 	--- perform query, return results as a table.
+	--@return table of resultant rows, or nil, err_msg on error
 	niceQuery = function(self, str)
 		local cur, err = self.connection:execute(str)
 		if not cur then
@@ -104,100 +201,4 @@ local db_methods = {
 	rollback = function(self)
 		return self.connection:rollback()
 	end
-}
-local db_mt = {__index=db_methods}
-
-
---- the database class.
---- database connection will be available as webylene.db
-database = {
-	--- initialize db connection
-	init = function(self)
-		
-		--TODO: rework this stuff to make compatible with persistent connections.
-		
-		local db_settings, db_instance -- upvalues, baby, upvalues.
-		
-		event:addListener("initialize",function()
-			db_settings=cf("database") -- these will be loaded by now.
-			if not db_settings then return nil, "no database config. ain't even gonna try to connect" end
-			db_instance = assert(self:new(db_settings.type))
-			webylene.db = db_instance --- ############ Let this not slip by thine eyes ############
-		end)
-		if db_settings.persist==true or db_settings.persist == "true" then
-			assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306))
-			event:addStartListener("request", function()
-				if not db_instance:connected() then assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306)) end
-				event:start("databaseReady")
-			end)
-			
-			event:addFinishListener("request", function()
-				event:finish("databaseReady")
-				--disconnect
-			end)
-			
-			event:addListener("shutdown", function()
-				if db_instance:connected() then 
-					db_instance:close()
-					--db_instance = nil --no, keep these around
-					--webylene.db = nil
-				end
-			end)
-		else
-			event:addStartListener("request", function()
-				--connect
-				assert(db_instance:connect(db_settings.db, db_settings.username, db_settings.password, db_settings.host, db_settings.port or 3306))
-				event:start("databaseReady")
-			end)
-			
-			event:addFinishListener("request", function()
-				event:finish("databaseReady")
-				--disconnect
-				if db_instance:connected() then 
-					db_instance:close()
-					--db_instance = nil --no, keep these around
-					--webylene.db = nil
-				end
-			end)
-		end
-	end,
-	
-	--- new db connection object maybe? (doesn't actually connect, that happens later.
-	new = function(self, database_type) 
-		if not database_type then 
-			return nil, "no database type specified..."
-		elseif type(database_type)~='string' then 
-			return nil, "unrecognized database type " .. tostring(database_type) 
-		end
-		local luasql_dbtype = string.format("luasql.%s", database_type)
-		require(luasql_dbtype)
-		local env = luasql[database_type]()
-		return setmetatable({
-			connect = function(self, ...)
-				self.connected = function(self)
-					return self.connection and true
-				end
-				local arg = {...}
-				self.clone = function(self) -- love them closures, eh?
-					return database:new(database_type):connect(unpack(arg))
-				end
-				
-				local connection, err = env:connect(unpack(arg))
-				self.connection = connection
-				--self.logging_conn = env:connect(unpack(arg))
-				if not self.connection then return nil, err end
-				return self 
-			end,
-			close = function(self)
-				if self.connection:close() then
-					self.connection = nil
-					return self
-				else 
-					return nil, "can't close connection -- it's still being used."
-				end
-			end,	
-			query = db_methods.query -- speed hack. is it desired, or just ugly?
-		}, db_mt)
-	end
-	
-}
+}}

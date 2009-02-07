@@ -1,27 +1,8 @@
 local rex = require "rex_pcre"
 local webylene = webylene
-local parser
-local script_printf_path
---cachy, cachy
-local url_rex = rex.new("^((?P<scheme>(?:http|ftp)s?)://(?:(?P<userinfo>\w+(?::\w+)?)@)?(?P<hostname>[^/:]+)(:(?P<port>[0-9]+))?)?(?P<path>/[^?#]*)?(?:\\?(?P<query>[^#]*))?(?:#(?P<fragment>.*))?$")
---- parse a uri into its parts. returns a table with keys:
--- scheme	= protocol used (http, https, ftp, etc)
--- userinfo	= username:password
--- hostname	= hostname or ip address of server
--- port		= port, if any specified
--- path		= path part of the url, excluding the querystring (i.e. the path part of http://google.com/foo/bar?huh#1 would be /foo/bar
--- query	= query string, excluding leading ? character
--- fragment	= part of url after the # character
-local parseurl = function(url) 
-		local start, finish, res = url_rex:tfind(url)
-		return res
-end
-local path_regex = setmetatable({}, {__index=function(t,match_str)
-	local r = rex.new("^" .. match_str .. "$")
-	rawset(t, match_str, r)
-	return r
-end})
+local parser, script_printf_path, walk_path, parseurl, arrive --closureds
 
+--- route a request to a script in scripts/, as specified in config/routes.yaml
 router = {
 	init = function(self)
 		--set our configgy stuff
@@ -44,9 +25,9 @@ router = {
 	route = function(self, uri)
 		local url = parseurl(uri).path
 		for i,route in pairs(self.settings.routes) do
-			route = parser:parseRoute(route)
-			if self:walkPath(url, route.path) then
-				return self:arriveAtDestination(route)
+			route = parser.parseRoute(route)
+			if walk_path(url, route.path) then
+				return arrive(self, route)
 			end
 		end
 		--no route matched. 404 that sucker.
@@ -55,7 +36,7 @@ router = {
 	
 	--- route to the 404 page. this gets its own function because it might be considered a default -- no route, so take Route 404.
 	route404 = function(self)
-		self:arriveAtDestination(parser:parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
+		arrive(self, parser.parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
 	end,
 	
 	--if there was an error executing a page script
@@ -63,66 +44,95 @@ router = {
 		logger:error(error_message)
 		local d500 = self.settings["500"]
 		assert(d500, error_message .. ". Additionally, 500 page handler script not found -- bailing.")
-		self:arriveAtDestination(parser:parseRoute({path=" ", ref="500", destination=self.settings["500"], param={error=error_message, trace=trace}}), true)
-	end,
-		
-	setTitle = function(self, title)
-		
+		arrive(self, parser.parseRoute({path=" ", ref="500", destination=self.settings["500"], param={error=error_message, trace=trace}}), true)
 	end,
 	
-	--- see if the url matches the path given
-	walkPath = function(self, url, path)
-		local match = { url = false, param = true }
-		
-		--TODO: this whole thing's kind of ugly. prettify later.
-		local params = request.params
-		for param, val in pairs(path.param) do
-		--path params. it's an or.
-			if params[param] ~= val then
-				match.param = false
-				break
-			end
-		end
-		
-		for i, furl in pairs(path.url) do
-			--path urls. it's an and.
-			if self:oughtToRegex(furl) then
-				--regex comparison
-				local start, finish, matches = path_regex[furl]:exec(url or "")
-				if matches then --the regexp matched!
-					local params = request.params
-					for name, val in pairs(matches) do
-					--expand named regex captures into REQUEST parameters
-						if type(name) == "string" and val ~= false then
-							params[name]=val
-						end
-					end
-					match.url = true
-				end
-			else
-				--plain old string comparison. get rid of the initial escape char, and compare
-				match.url = url:sub(2) == furl
-			end
-			
-			if match.url then
-				break
-			end
-		end
-		return (match.url and match.param)
+	setTitle=function(self, title)
+		if not self.currentRoute then return nil, "not yet routed" end
+		self.currentRoute.param.title=title
 	end,
-
-	--- is the urlPattern intended to be  a simple match, or a regular expression?
-	oughtToRegex = function(self, urlPattern)
-		return urlPattern:sub(1,2) ~= "|"
-	end
+	getTitle=function(self)
+		if not self.currentRoute then return nil, "not yet routed" end
+		return self.currentRoute.param.title
+	end,
+	getRef=function(self)
+		if not self.currentRoute then return nil, "not yet routed" end
+		return currentRoute.param.ref
+	end 
 }
 
+
+--cachy, cachy
+local url_rex = rex.new("^((?P<scheme>(?:http|ftp)s?)://(?:(?P<userinfo>\w+(?::\w+)?)@)?(?P<hostname>[^/:]+)(:(?P<port>[0-9]+))?)?(?P<path>/[^?#]*)?(?:\\?(?P<query>[^#]*))?(?:#(?P<fragment>.*))?$")
+--- parse a uri into its parts. returns a table with keys:
+-- scheme	= protocol used (http, https, ftp, etc)
+-- userinfo	= username:password
+-- hostname	= hostname or ip address of server
+-- port		= port, if any specified
+-- path		= path part of the url, excluding the querystring (i.e. the path part of http://google.com/foo/bar?huh#1 would be /foo/bar
+-- query	= query string, excluding leading ? character
+-- fragment	= part of url after the # character
+parseurl = function(url) 
+	local start, finish, res = url_rex:tfind(url)
+	return res
+end
+local path_regex = setmetatable({}, {__index=function(t,match_str)
+	local r = rex.new("^" .. match_str .. "$")
+	rawset(t, match_str, r)
+	return r
+end})
+
+--- is the urlPattern intended to be  a simple match, or a regular expression?
+local ought_to_regex = function(urlPattern)
+	return urlPattern:sub(1,2) ~= "|"
+end
+
+--- see if the url matches the path given
+walk_path = function(url, path)
+	local match = { url = false, param = true }
+	
+	--TODO: this whole thing's kind of ugly. prettify later.
+	local params = request.params
+	for param, val in pairs(path.param) do
+	--path params. it's an or.
+		if params[param] ~= val then
+			match.param = false
+			break
+		end
+	end
+	
+	for i, furl in pairs(path.url) do
+		--path urls. it's an and.
+		if ought_to_regex(furl) then
+			--regex comparison
+			local start, finish, matches = path_regex[furl]:exec(url or "")
+			if matches then --the regexp matched!
+				local params = request.params
+				for name, val in pairs(matches) do
+				--expand named regex captures into REQUEST parameters
+					if type(name) == "string" and val ~= false then
+						params[name]=val
+					end
+				end
+				match.url = true
+			end
+		else
+			--plain old string comparison. get rid of the initial escape char, and compare
+			match.url = url:sub(2) == furl
+		end
+		
+		if match.url then
+			break
+		end
+	end
+	return (match.url and match.param)
+end
 
 --- parse a route. a bit tricky, since the route spec is pretty flexible
 parser = {
 	knownParams = {"title", "ref"},
 	
-	destination = function(self, contents)
+	destination = function(contents)
 		if type(contents)=="table" then
 			--expanded destination notation
 			contents.param = contents.param or {}
@@ -135,7 +145,7 @@ parser = {
 		return contents
 	end,
 	
-	pathUrl = function(self, url)
+	pathUrl = function(url)
 		if type(url) == "string" then
 			return {url}
 		elseif type(url) == "table" then
@@ -145,25 +155,25 @@ parser = {
 		end
 	end,
 	
-	path = function(self, contents)
+	path = function(contents)
 		if type(contents) == "table" and not table.isarray(contents) then
 			assert(contents.url, "Couldn't parse route path: path explicitly stated, but no url given. Check config/routes.yaml")	--no url. can't do anything about that, error out.
-			contents.url=self:pathUrl(contents.url)
+			contents.url=parser.pathUrl(contents.url)
 			contents.param = contents.param or {}
 		else  --it's a shorthand
-			contents = {url=self:pathUrl(contents), param={}}
+			contents = {url=parser.pathUrl(contents), param={}}
 		end
 		return contents
 	end,
 	
-	param = function(self, contents)
+	param = function(contents)
 		assert(type(contents) == "table", "Couldn't make sense of params. Check config/routes'yaml")
 		return contents
 	end,
 		
-	extractBaseParam = function(self, contents) 
+	extractBaseParam = function(contents) 
 		local param = {}
-		for i,key in pairs(self.knownParams) do
+		for i,key in pairs(parser.knownParams) do
 			if contents[key] then 
 				param[key]=contents[key]
 				contents[key]=nil
@@ -172,14 +182,14 @@ parser = {
 		return param
 	end,
 	
-	parseRoute = function(self, contents)
+	parseRoute = function(contents)
 		assert(type(contents) == "table", "expected route to be a table, found a " .. type(contents) .. " instead. Check config/routes.yaml")
 		local key, val = next(contents) -- key may be the route target, or nothing important. 
-		local baseParam = self:extractBaseParam((table.length(contents) == 1) and val or contents)
+		local baseParam = parser.extractBaseParam((table.length(contents) == 1) and val or contents)
 		local route = {
-			path=self:path(contents.path or val), --path or first value in contents
-			destination = self:destination(contents.destination or key), --destination or first key in contents
-			param = self:param(table.mergeRecursivelyWith(baseParam, contents.param))
+			path=parser.path(contents.path or val), --path or first value in contents
+			destination = parser.destination(contents.destination or key), --destination or first key in contents
+			param = parser.param(table.mergeRecursivelyWith(baseParam, contents.param))
 		}
 		route.param.ref = route.param.ref or route.destination.script -- auto-ref
 		return route
@@ -217,28 +227,15 @@ do
 	end})
 	
 	--- stuff to do upon finishing the routing.
-	router.arriveAtDestination = function(self, route, unprotected)
+	arrive = function(self, route, unprotected)
 		table.mergeWith(request.params, route.param) --add route's predefined params to the params table
 		self.currentRoute = route
 		
-		event:fire("arriveAtDestination")
+		event:fire("arrive")
 		if not unprotected then
 			return mypcall(scriptcache[script_printf_path:format(route.destination.script)])
 		else
 			return assert(scriptcache[script_printf_path:format(route.destination.script)])()
 		end
 	end
-end 
-
-router.setTitle=function(self, title)
-	if not self.currentRoute then return nil, "not yet routed" end
-	self.currentRoute.param.title=title
-end
-router.getTitle=function(self)
-	if not self.currentRoute then return nil, "not yet routed" end
-	return self.currentRoute.param.title
-end
-router.getRef=function(self)
-	if not self.currentRoute then return nil, "not yet routed" end
-	return currentRoute.param.ref
 end 

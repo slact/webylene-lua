@@ -1,6 +1,7 @@
 require "sha1"
 require "serialize"
 
+local engines
 --- session managing object
 --  attaches itself to some core and sendHeaders events
 --  events
@@ -10,7 +11,7 @@ session = {
 		event:addListener("initialize", function() 
 			self.config = cf("session")
 			if not self.config or self.config.disabled == true or self.config.enabled == false or self.config.disabled == "true" or self.config.enabled == "false" then return end --do we want to try a session?
-			self.engine = self.storage[self.config.storage]
+			self.engine = engines[self.config.storage]
 			self.engine:init()
 		end)
 		
@@ -68,7 +69,7 @@ session = {
 	status = {}
 }
 
-session.storage = {
+engines = {
 	---database storage engine
 	database = {
 		init = function(self)
@@ -76,11 +77,11 @@ session.storage = {
 				self.table = session.config.table or "session"
 			end)
 		
-			event:addListener("databaseReady", function()
+			event:addListener("databaseTransaction", function()
 				event:start("sessionEngineReady")
 			end)
 			
-			event:addFinishListener("databaseReady", function()
+			event:addFinishListener("databaseTransaction", function()
 				event:finish("sessionEngineReady") 
 			end)
 			return self
