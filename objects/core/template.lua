@@ -168,7 +168,7 @@ page_out = function(self, templateName, locals, outputfunction)
 		for i,ref in pairs({"css","js"}) do
 			templateRefs = template_settings[ref] or {}
 			layoutRefs   = sets.templates[layout][ref] or {}
-			locals[ref] = table.merge(templateRefs, layoutRefs)
+			locals[ref] = table.merge(type(templateRefs)=='table' and templateRefs or {templateRefs}, type(layoutRefs)=='table' and layoutRefs or {layoutRefs})
 		end
 		locals[output_function_name]=outputfunction or locals[output_function_name]  --in case we want a custom output function. granted, this might clash with the provided locals, but we shall hope that it does not.		
 
