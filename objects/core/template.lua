@@ -33,21 +33,23 @@ template = {
 	--- output a template with environment [locals]. 
 	-- this function produces actual output, and does not return a resulting string
 	-- @param templateName name of the template to be output
-	out = function(self, templateName, locals)
+	-- @param locals variables available to the template
+	-- @param layout layout to use
+	out = function(self, templateName, locals, layout)
 		locals = locals or {}
-		print(page_out(self, templateName, locals))
+		print(page_out(self, templateName, locals, layout))
 	end,
 	
 	
 	--- return the string for template with environment [locals]. 
 	-- @return string with the result of including the template.
-	get = function(self, templateName, locals)
+	get = function(self, templateName, locals, layout)
 		locals = locals or {}
 		local buffer = {}
 		local outfunc = function(arg)
 			table.insert(buffer, arg)
 		end
-		page_out(self, templateName, locals, outfunc)
+		page_out(self, templateName, locals, layout, outfunc)
 		return table.concat(buffer)
 	end
 }
@@ -114,7 +116,7 @@ local include do
 	include = function(self, template, locals, returnful)
 		local success, err = pcall(setfenv(memoized_chunk[memoized_path[template]], prepare_locals(self, locals)))
 		if not success then 
-			if webylene.config.show_errors==true then print(err) end -- make this check less dynamic later
+			if webylene.config.show_errors==true then print(err .. " Template: " .. memoized_path[template]) end -- make this check less dynamic later
 			logger:error(err)
 		end
 	end	
@@ -145,13 +147,13 @@ stuff_available_to_a_template = setmetatable({
 }, {__index=_G})
 	
 --- template output workhorse.
-page_out = function(self, templateName, locals, outputfunction)
+page_out = function(self, templateName, locals, layout, outputfunction)
 	local sets = self.settings
 	local template_settings = self.settings.templates[templateName]
 	assert(template_settings, "template '" .. templateName .. "' not found")
 	
 	locals = locals or {}
-	local layout = self.layout or sets.layouts.default
+	layout = (type(layout)=='string' and sets.layouts[layout]) or self.layout or sets.layouts.default
 	
 
 	local template_data = template_settings.data
