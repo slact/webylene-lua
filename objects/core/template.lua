@@ -142,7 +142,10 @@ stuff_available_to_a_template = setmetatable({
 	end,
 	
 	url_encode = wsapi.util.url_encode,
-	url_decode = wsapi.util.url_decode
+	url_decode = wsapi.util.url_decode,
+	
+	htmlentities = string.htmlentities,
+	htmlunentities = string.htmlunentities
 	
 }, {__index=_G})
 	

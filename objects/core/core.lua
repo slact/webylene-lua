@@ -5,16 +5,21 @@ local load_config, load_objects  --closured
 core = {
 	--- initialize webylene
 	initialize = function(self)
-		webylene:loadlib("utils") -- we need all the random junk in here
 		local ev = webylene.event
-		
-		--load config
-		ev:start("loadConfig")
-			load_config(self, "config", "lua")
-			load_config(self, "config", "yaml")
-		ev:finish("loadConfig")
+		local logger = webylene.logger
+		logger:info("started webylene in environment " .. webylene.env .. " with path " .. webylene.path)
 		
 		ev:start("initialize")	
+			ev:start("loadUtilities")
+				require "utilities" -- we need all the random junk in here
+			ev:finish("loadUtilities")
+			
+			--load config
+			ev:start("loadConfig")
+				load_config(self, "config", "lua")
+				load_config(self, "config", "yaml")
+			ev:finish("loadConfig")
+		
 			--load core objects
 			ev:start("loadCore")
 				load_objects(self, "objects/core")
@@ -73,8 +78,7 @@ load_objects = function(self, relativePath)
 	local extension_cutoff = #extension+2 --the dot +1
 	for file in lfs.dir(absolutePath) do																				-- is this part right?...
 		if file ~= "." and file ~= ".." and lfs.attributes(absolutePath .. webylene.path_separator .. file, "mode")=="file" and file:sub(-#extension) == extension then
-			local name = file:sub(1, -extension_cutoff)
-			if not webylene[name] then webylene:importFile(absolutePath .. webylene.path_separator .. file, file:sub(1, -extension_cutoff)) end
+			local obj = webylene[file:sub(1, -extension_cutoff)]
 		end
 	end
 	return self

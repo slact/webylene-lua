@@ -1,23 +1,28 @@
 local path_separator = "/"
 
 --we'll need this stuff right off the bat
-require "wsapi.request"
-require "wsapi.response"
+local req = require "wsapi.request"
+local resp = require "wsapi.response"
+
 webylene = {
-	initialize = function(self, path)
+	initialize = function(self, path, environment)
 		assert(path, "Webylene project path is a must!")
+		--assert(environment, "Webylene environment is a must!") --environment is really quite optional
 		self.path = path
+		self.env = environment
 		local slash = path_separator
+		
+		--let local requires work.
 		package.path = self.path .. slash .. "share" .. slash .. "?.lua;" .. self.path .. slash .. "share" .. slash .. "?" .. slash .. "init.lua;" .. package.path
+		
 		self:import("core")
 		self.core:initialize()
 	end,
 	
 	wsapi_request = function(self, wsapi_env)
-		self.request = setmetatable(wsapi.request.new(wsapi_env), {__index=wsapi_env})
+		self.request = setmetatable(req.new(wsapi_env), {__index=wsapi_env})
 		self.request.env = wsapi_env
-		self.req = self.request
-		self.response = wsapi.response.new()
+		self.response = resp.new()
 		self.core:request()
 		return self.response:finish()
 	end,
@@ -25,14 +30,25 @@ webylene = {
 	path_separator = path_separator,
 	
 	path = "",
-	config = {},
-	
+	config = {}
+}
+
+--- config retrieval function. kinda redundant, but used in other languages' versions of webylene. here for consistency.
+-- usage: cf("foo", "bar", "baz") retrieves webylene.config.foo.bar.baz
+webylene.cf = function(...)
+	local config = webylene.config
+	for i,v in ipairs({...}) do
+		config = config[v]
+	end
+	return config
+end
+
+do
 	--- import a lua chunk and load it as an index in the webylene table. 
 	-- @param file_chunk lua chunk, at least defining a table named object_name
 	-- @param object_name expected name of the imported object/table
-	--
 	-- upon successful chunk loading, [object_name]:init() is called.
-	importChunk = function(self, file_chunk, object_name)
+	local importChunk = function(self, file_chunk, object_name)
 		if file_chunk == nil then return end 
 		
 		local relatively_safe_env = setmetatable({}, {__index=_G})
@@ -46,48 +62,16 @@ webylene = {
 			return self[object_name]
 		end
 		return nil
-	end,
-	
-	--- import contents of a file as webylene[object_name]
-	-- @see webylene.importChunk
-	importFile = function(self, file_path, object_name)
-		local object_name = object_name or (string.match(path_separator .. file_path, ".*[^\\]"..path_separator.."(.-)$")):sub(1, -5)
-		if rawget(self, object_name) ~= nil then
-			return self[object_name]
-		end
-		local result = self:importChunk(assert(loadfile(file_path)), object_name)
-		if result ~= nil then
-			return result
-		end
-		return nil
 	end
-}
-
-do
-	local libsLoaded = {}
-	--- load a library (heap o' functions) from webylene root/lib/[lib_name].lua
-	webylene.loadlib = function(self, lib_name)
-		if not libsLoaded[lib_name] then
-			local chunk, err = loadfile(self.path .. path_separator .. "lib" .. path_separator .. lib_name .. ".lua")
-			if chunk then 
-				chunk()
-			else
-				error(err, 0) 
-			end
-			libsLoaded[lib_name]=true
-		end
-		return self
-	end
-
-	local notFound = {}
+	local disregard = {webylene=true} --we don't want webylene to be loaded more than once. also, this table is used to keep track of stuff that's not part of webylene. (avoid infinite lookup loops)
 	local object_dirs = {"objects" .. path_separator .. "core", "objects", "objects" .. path_separator .. "plugins"} --where shall we look?
 	
 	--- (too) magic webylene importer. called whenever webylene.foo is nil, tries to load foo.lua from the folders listed below. 
-	--@see webylene.importFile
 	webylene.import = function(self, object_name)
-		if rawget(self, object_name) ~= nil then
-			return self.object_name
-		elseif notFound[object_name] then
+		local exists = rawget(self, object_name)
+		if exists ~= nil then
+			return exists
+		elseif disregard[object_name] then
 			return nil
 		end
 		local result
@@ -103,20 +87,18 @@ do
 				f:close()
 				local chunk, err = loadfile(mypath)
 				if not chunk then error(err, 0) end
-				result = self:importChunk(chunk, object_name)
+				result = importChunk(self, chunk, object_name)
 				if result ~= nil then
 					return result
 				end
 			end
 		end		
 		-- we tried, but failed. make a note of it, and move on... :'(  
-		notFound[object_name] = true
+		disregard[object_name] = true
 		return nil
 	end
 end
 
 setmetatable(webylene, {
-	__index = function(tbl, key) --trigger the importer
-		return tbl:import(key)
-	end
+	__index = webylene.import
 })

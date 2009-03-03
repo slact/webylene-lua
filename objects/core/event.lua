@@ -21,8 +21,6 @@ do
 		active = function(self, eventName)
 			return activeEvents[eventName]
 		end,
-		
-		activeEvents = activeEvents,
 			
 		--- fire event [event]
 		-- @param event event name
@@ -39,11 +37,13 @@ do
 		-- @return self
 		start = function(self, event)
 			if self:active(event) then --aw, crap
-				error("tried starting event '" .. event .. "' but it's already started. \n active events: {" ..
-					table.concat(
-						table.reduce(activeEvents, function(prev, cur, key) table.insert(prev,string.format("'%s'", key)); return prev; end, {}),
-						", "
-					) .. "}"
+				local actives = {}
+				for ev, _ in pairs(activeEvents) do
+					table.insert(actives, ("%q"):format(ev))
+				end
+				error('tried starting event "' .. event .. '" but it\'s already started. active events: {' ..
+					table.concat(actives, ", ")
+					.. "}"
 				)
 			end
 			activeEvents[event]=true
