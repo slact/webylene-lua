@@ -1,4 +1,4 @@
-local setmetatable, getmetatable, type, pairs, ipairs, table, next = setmetatable, getmetatable, type, pairs, ipairs, table, next
+local setmetatable, getmetatable, type, pairs, ipairs, table, next, math = setmetatable, getmetatable, type, pairs, ipairs, table, next, math
 module(...)
 
 --- does the table t contain only numeric indices?
