@@ -1,0 +1,5 @@
+these are output templates. those with a .lp extension are luaPages templates.
+for more information, see http://www.keplerproject.org/cgilua/manual.html#templates
+Note: you need not include cgilua or any such thing, luapages is bundled with webylene.
+
+in an MVC context, these here files are the Views.

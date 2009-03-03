@@ -1,5 +1,3 @@
-Webylene
-
 objects/plugins
 
 Plugin objects go here.
