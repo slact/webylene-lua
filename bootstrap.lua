@@ -59,10 +59,8 @@ local webylene_object_path = path .. path_separator .. "objects" .. path_separat
 require (("wsapi.%s"):format(connector))
 
 function initialize(previous_error)
+	if previous_error then pcall(function() webylene.logger:fatal(previous_error) end) end
 	dofile(webylene_object_path)
-	if previous_error then
-		pcall(webylene.logger.fatal, webylene.logger, previous_error)
-	end
 	setmetatable(_G, {__index = webylene}) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
 	webylene:initialize(path, environment)
 end
@@ -72,9 +70,13 @@ local wsapi_request = webylene.wsapi_request
 wsapi[connector].run(function(env)
 	local success, status, headers, iterator = pcall(wsapi_request, webylene, env)
 	if not success or reload then -- oh shit, bad error. let the parent environment handle it.
-		pcall(webylene.event.fire, webylene.event, "shutdown")
-		if not success then error(status, 0) end
+		pcall(function() webylene.event:fire("shutdown") end) --to to tell it to shut down
 		initialize((not success) and status)
+		if not success then 
+			return 500, {['Content-Type']='text/plain'}, coroutine.wrap(function() 
+				coroutine.yield((webylene and webylene.config.show_errors==true) and "ERROR: " .. status or "A bad error happened. We'll fix it, we promise!") 
+			end)
+		end
 	end
 	return status, headers, iterator
 end)
