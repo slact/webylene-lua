@@ -1,7 +1,7 @@
 #!/usr/bin/env luajit
 local path_separator = "/"
 local protocol, path, reload, environment
-local version = "0.dev"
+local version = "0.8"
 --parse command-line parameters
 local arguments = {...}
 for i, a in ipairs(arguments) do
