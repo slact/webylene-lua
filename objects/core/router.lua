@@ -1,8 +1,41 @@
+--- route a request to a script in scripts/, as specified in config/routes.yaml
+
+--EVENTS:
+--[[
+	<initialize source="core">
+		access router configs. this is canonically stuff from config/routes.yaml
+	</initialize>
+]]
+--[[
+	<request source="core">
+		<route>
+			perform url-based routing
+		</route>
+		<arrive>
+			fired immediately before executing a script from the scripts directory.
+		</arrive>
+	</request>
+]]
+--[[
+	<request source="core">
+		<route404 condition="no route matched against the requested url">
+			make a note of this in the log. route to the 404 error page specified (canonically) in config/routes.yaml
+		</route404>
+	</request>
+]]
+--[[
+	<request source="core">
+		<route500 condition="an error occured processing a script or template (nothing else)">
+			make a note of this in the log. route to the 500 error page specified (canonically) in config/routes.yaml
+		</route500>
+	</request>
+]]
+
+
 local rex = require "rex_pcre"
-local webylene = webylene
+local webylene, event = webylene, event
 local parser, script_printf_path, walk_path, parseurl, arrive --closureds
 
---- route a request to a script in scripts/, as specified in config/routes.yaml
 router = {
 	init = function(self)
 		--set our configgy stuff
@@ -12,7 +45,7 @@ router = {
 		end)
 		
 		--route when it's time to do so
-		event:addListener("route", function()
+		event:addListener("request", function()
 			local uri = request.SCRIPT_URI
 			if not uri or #uri==0 then
 				uri = request.env.REQUEST_URI
@@ -23,28 +56,34 @@ router = {
 
 	--- perform the routing, besed on the uri given
 	route = function(self, uri)
+		event:start("route")
 		local url = parseurl(uri).path
 		for i,route in pairs(self.settings.routes) do
 			route = parser.parseRoute(route)
 			if walk_path(url, route.path) then
+				event:finish("route")
 				return arrive(self, route)
 			end
 		end
 		--no route matched. 404 that sucker.
-		self:route404(url)
+		event:finish("route")
+		return self:route404(url)
 	end,
 	
 	--- route to the 404 page. this gets its own function because it might be considered a default -- no route, so take Route 404.
 	route404 = function(self)
-		arrive(self, parser.parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
+		event:fire("route404")
+		return arrive(self, parser.parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
 	end,
 	
 	--if there was an error executing a page script
 	route500 = function(self, error_message, trace)
+		event:start("route500")
 		logger:error(error_message)
 		local d500 = self.settings["500"]
+		event:finish("route500")
 		assert(d500, error_message .. ". Additionally, 500 page handler script not found -- bailing.")
-		arrive(self, parser.parseRoute({path=" ", ref="500", destination=self.settings["500"], param={error=error_message, trace=trace}}), true)
+		return arrive(self, parser.parseRoute({path=" ", ref="500", destination=self.settings["500"], param={error=error_message, trace=trace}}), true)
 	end,
 	
 	setTitle=function(self, title)
@@ -167,7 +206,7 @@ parser = {
 	end,
 	
 	param = function(contents)
-		assert(type(contents) == "table", "Couldn't make sense of params. Check config/routes'yaml")
+		assert(type(contents) == "table", "Couldn't make sense of params. Check config/routes.yaml")
 		return contents
 	end,
 		
@@ -197,6 +236,7 @@ parser = {
 }
 
 do
+	--i'm just a helper traceback function for xpcall. i return a table with the error message and a trace. It's a table because a traceback may return only one argument. i think...
 	local function tracy(err)
 		local trace
 		if debug and debug.traceback then
@@ -205,11 +245,9 @@ do
 		return {error=err, trace=trace}
 	end
 	
+	--a slightly hacky way of gracefully handling script errors (that is, from stuff in the scripts directory)
 	local function mypcall(func)
-		local success, res = xpcall(
-			func,
-			tracy
-		)
+		local success, res = xpcall(func, tracy)
 		if not success then 
 			return nil, router:route500(res.error, res.trace) 
 		else
@@ -219,23 +257,44 @@ do
 	
 	local scriptcache = setmetatable({}, {__index=function(t, absolute_path)
 		local chunk, err = loadfile(absolute_path)
+		--[[should loadfile fail, we want to return a lua-chunk which, 
+		upon execution, will error out with loadfile's error message. 
+		this should not be cached.]]
 		if not chunk then 
-			return function() error(err, 0) end 
+			return function() error(err, 0) end
 		end
 		rawset(t, absolute_path, chunk)
 		return chunk
 	end})
 	
 	--- stuff to do upon finishing the routing.
+	-- @param self router object
+	-- @param route the route that could. (could match the request url, that is.)
+	-- @param unprotected set this to true only if you want an error to trigger a total shutdown (and restart) of webylene. used when routing to a 500 page to avoid possible infinite loops.
 	arrive = function(self, route, unprotected)
 		table.mergeWith(request.params, route.param) --add route's predefined params to the params table
 		self.currentRoute = route
 		
-		event:fire("arrive")
+		event:start("arrive")
+		local scriptpath=script_printf_path:format(route.destination.script)
+		local script_return --a script will return a function when it wants said function to respond to routing requests. TODO: this comment needs to explain the idea better.
 		if not unprotected then
-			return mypcall(scriptcache[script_printf_path:format(route.destination.script)])
+			script_return = mypcall(scriptcache[scriptpath])
+			if script_return and type(script_return)=="function" then
+				scriptcache[scriptpath]=script_return
+				script_return = mypcall(scriptcache[scriptpath])
+			end
 		else
-			return assert(scriptcache[script_printf_path:format(route.destination.script)])()
+			script_return = assert(scriptcache[scriptpath])()
+			--violating DRY on purpose. this copypasta is the result of slightly premature optimization.
+			if script_return and type(script_return)=="function" then
+				scriptcache[scriptpath]=script_return
+				script_return = assert(scriptcache[scriptpath])()
+			end
+			--yes, this means the 'arrive' event may not finish. but hell, if this errors out,
+			-- an unfinished event is the least of your concerns. unless you were routing to 
+			-- an error page, what the hell are you doing using an unprotected arrival?
 		end
+		event:finish("arrive")
 	end
 end 

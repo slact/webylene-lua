@@ -1,5 +1,38 @@
-require "logging.file"
 --- just a silly wrapper for the kepler file logger
+
+--EVENTS:
+--[[
+<initialize source="core">
+	log this
+</initialize>
+]]
+--[[
+<loadUtilities source="core">
+	finish: log this 
+</loadUtilities>
+]]
+--[[
+<loadConfig source="core">
+	finish: log this 
+</loadConfig>
+]]
+--[[
+<loadCore source="core">
+	finish: log this 
+</loadCore>
+]]
+--[[
+<loadPlugins source="core">
+	finish: log this 
+</loadPlugins>
+]]
+--[[
+<shutdown source="core">
+	log this.
+</loadPlugins>
+]]
+
+require "logging.file"
 logger = 
 {
 	init = function(self)

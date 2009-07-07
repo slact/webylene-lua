@@ -1,5 +1,16 @@
 --- the eventer
 
+-- this sucker kepps track of events n' stuff. sort of the central orchestrator for webylene internals.
+
+--[[
+ As you might be able to tell already, events in webylene are _not_ bound to 
+ partucular objects (like, say, with JS). Instead, all events share the same 
+ global namespace. This makes coding, debugging and documenting much simpler.
+ Unfortunately, this means that every plugin must fire publish uniquely-named
+ events, which doesn't work drastically well when considering any decentralized
+ plugin ecosystem. Considerations and solutions to this problem are welcome.
+]]
+
 do
 	--- event listener container
 	local listeners = setmetatable({},{ 
@@ -71,32 +82,29 @@ do
 		
 		--- add a during [eventName] listener
 		-- @param listener listener function
-		addListener = function(self, eventName, listener)
+		-- @param when string: "start", "during", "finish". at what point in the event should this listener be executed?
+		addListener = function(self, eventName, listener, when)
 			--adding  eventName
-			if self:active("request") then
-				error("shit.")
+			when = when and string.lower(tostring(when)) or "during"
+			if when ~= "start" and when ~= "during" and when ~= "finish" then
+				error("unknown event timing: " .. when .. ". must be 'start', 'during', or 'finish'... or nil")
 			end
-			table.insert(listeners[eventName].during, listener) --add the event!
-			if self:active(eventName) then
+			if self:active("request") then -- we aren't supposed to be adding any events at all when a request is active.
+				error("deep, potentially concurrent shit.")
+			end
+			table.insert(listeners[eventName][when], listener) --add the event!
+			if when=="during" and self:active(eventName) then
 				listener()
 			end
 			return self
 		end,
 		
 		addStartListener = function(self, eventName, listener)
-			if self:active("request") then
-				error("shit.")
-			end
-			table.insert(listeners[eventName].start, listener) --add the event!
-			return self
+			return self:addListener(eventName, listener, "start")
 		end,
 			
 		addFinishListener = function(self, eventName, listener)
-			if self:active("request") then
-				error("shit.")
-			end
-			table.insert(listeners[eventName].finish, listener) --add the event!
-			return self
+			return self:addListener(eventName, listener, "finish")
 		end,
 		
 		reset = function(self)

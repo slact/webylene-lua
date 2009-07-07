@@ -1,3 +1,15 @@
+--- this sucker's responsible for handling templates
+
+--EVENTS:
+--[[
+	<initialize source="core">
+		read template and layout configs, canonically from config/templates.yaml
+	</initialize>
+]]
+--[[
+	
+]]
+
 require "lp"
 require "wsapi.util"
 
