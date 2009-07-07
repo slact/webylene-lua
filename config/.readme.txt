@@ -11,4 +11,4 @@ and are loaded right after .
 Default yaml config file list:
 	app.yaml			general webylene config. place general env config here.
 	templates.yaml		template config
-	urls.yaml			url to script mappings. You'll want to play with this one.
+	routes.yaml			url to script mappings. You'll want to play with this one.
