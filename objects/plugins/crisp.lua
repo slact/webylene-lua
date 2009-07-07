@@ -1,5 +1,13 @@
 --- an object to access crisps
 -- a crisp is a variable that persists until the next request from the owner of a given session, and then gets removed -- unless explicitly prolonged
+
+--EVENTS:
+--[[
+	<sessionReady source="plugin:session">
+		do crisp-related things.
+	</sessionReady>
+]]
+--TODO: renew all crisps on 404
 crisp = {
 	init = function(self)
 		event:addListener("sessionReady", function() session.data.crisps = session.data.crisps or {}; end)

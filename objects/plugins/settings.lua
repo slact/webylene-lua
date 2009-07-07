@@ -1,4 +1,12 @@
---- settings taken from the database. useful for customizeable stuff.
+--- settings taken from the database. useful for global administrator-customizeable settings.
+--TODO: make "threadsafe"
+
+--EVENTS:
+--[[
+	<sessionReady source="plugin:session">
+		load up cached settings, per-session
+	</sessionReady>
+]]
 local db, cf, event, session = db, cf, event, session
 local cached = {}
 
