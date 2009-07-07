@@ -1,13 +1,42 @@
+--- the core manages lowish-level bootstrappy stuff, and fires important events.
+
+--- EVENTS:
+--- as you'd expect, this fires some essential events:
+--[[ fired during initialization:
+	<initialize>
+		<loadUtilities>
+			load essential utilities from the libs dir
+		</loadUtilities>
+		<loadConfig>
+			load lua, followed by yaml config files from the config/ directory
+		</loadConfig>
+		<loadCore>
+			load all objects in objects/core. basic, essential stuff.
+		</loadCore>
+		<loadPlugins>
+			load all objects in objects/plugins. non-recursive.
+		</loadPlugins>
+	</initialize>
+]]
+--[[ fired during a request (when the server receives a request to view a page) or somesuch:
+	<request>
+		<route />
+	</request>
+]]
+--[[ on total webylene shutdown:
+	<shutdown />
+]]
+
 require "lfs"
 local webylene = webylene
 --- webylene core. this does all sorts of bootstrappity things.
-local load_config, load_objects  --closured
+local load_config, load_objects  --closured for fun and profit. mostly fun.
 core = {
 	--- initialize webylene
 	initialize = function(self)
 		local ev = webylene.event
 		local logger = webylene.logger
-		logger:info("started webylene in environment " .. webylene.env .. " with path " .. webylene.path)
+		logger:info("started webylene " .. ((type(webylene.env)=="string") and ("in " .. webylene.env .. " environment") or "without an environment parameter") ..  " with path " .. webylene.path)
 		
 		ev:start("initialize")	
 			ev:start("loadUtilities")
@@ -38,22 +67,32 @@ core = {
 		e:start("request")
 			e:fire("route")
 		e:finish("request")
+	end,
+	
+	shutdown = function(self)
+		webylene.event:fire("shutdown")
 	end
 }
 	
-	--- load config files of type <extension> from path <relative_path>. if <relative_path> is a folder, load all files with extension <extension>
+--- load config files of type <extension> from path <relative_path>. if <relative_path> is a folder, load all files with extension <extension>
+--remember, this is local.
 load_config = function(self, relative_path, extension)
 	extension = extension or "yaml"
 	local loadFile = {
 		yaml = function(path)
 			require "yaml"
-			local conf = yaml.load_file(path)
+			local f, err = io.open(path, "r")
+			if not f then return nil, err end
+			local success, conf = pcall(yaml.load, f:read("*all"))
+			f:close()
+			if not success then 
+				error("Error loading yaml file " .. path ..":\n" .. conf, 0)
+			end
 			if conf.env and conf.env[webylene.env] then	
 				table.mergeRecursivelyWith(conf, conf.env[webylene.env])
 				conf.env = nil
 			end
 			table.mergeRecursivelyWith(webylene.config, conf)
-
 		end,
 		lua	= function(path)
 			dofile(path)
@@ -71,6 +110,7 @@ load_config = function(self, relative_path, extension)
 end
 	
 --- load all objects in lua files in relativePath
+--remember, this is local.
 load_objects = function(self, relativePath)
 	local absolutePath = webylene.path .. webylene.path_separator .. relativePath
 	local webylene = webylene -- so that we don't have to go metatable-hopping all the time

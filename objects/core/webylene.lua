@@ -1,16 +1,17 @@
-local path_separator = "/"
+--- the webylene object is responsible for passing on a WSAPI request in a transparent, predictable manner.
 
 --we'll need this stuff right off the bat
 local req = require "wsapi.request"
 local resp = require "wsapi.response"
 
 webylene = {
+	--- environmental bootstrapping. figure out where we are and whatnot
 	initialize = function(self, path, environment)
 		assert(path, "Webylene project path is a must!")
 		--assert(environment, "Webylene environment is a must!") --environment is really quite optional
 		self.path = path
 		self.env = environment
-		local slash = path_separator
+		local slash = PATH_SEPARATOR
 		
 		--let local requires work.
 		package.path = self.path .. slash .. "share" .. slash .. "?.lua;" .. self.path .. slash .. "share" .. slash .. "?" .. slash .. "init.lua;" .. package.path
@@ -19,6 +20,7 @@ webylene = {
 		self.core:initialize()
 	end,
 	
+	--- process a wsapi request
 	wsapi_request = function(self, wsapi_env)
 		self.request = setmetatable(req.new(wsapi_env), {__index=wsapi_env})
 		self.request.env = wsapi_env
@@ -27,7 +29,7 @@ webylene = {
 		return self.response:finish()
 	end,
 
-	path_separator = path_separator,
+	path_separator = PATH_SEPARATOR,
 	
 	path = "",
 	config = {}
@@ -64,7 +66,7 @@ do
 		return nil
 	end
 	local disregard = {webylene=true} --we don't want webylene to be loaded more than once. also, this table is used to keep track of stuff that's not part of webylene. (avoid infinite lookup loops)
-	local object_dirs = {"objects" .. path_separator .. "core", "objects", "objects" .. path_separator .. "plugins"} --where shall we look?
+	local object_dirs = {"objects" .. PATH_SEPARATOR .. "core", "objects", "objects" .. PATH_SEPARATOR .. "plugins"} --where shall we look?
 	
 	--- (too) magic webylene importer. called whenever webylene.foo is nil, tries to load foo.lua from the folders listed below. 
 	webylene.import = function(self, object_name)
@@ -75,7 +77,7 @@ do
 			return nil
 		end
 		local result
-		local path =  self.path .. path_separator .. "%s" .. path_separator .. object_name .. ".lua"
+		local path =  self.path .. PATH_SEPARATOR .. "%s" .. PATH_SEPARATOR .. object_name .. ".lua"
 		for i,dir in pairs(object_dirs) do
 			local mypath = path:format(dir)
 			-- this is wasteful, but I don't see a better way to differentiate between 
