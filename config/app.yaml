@@ -1,8 +1,13 @@
+---
+#debugging settings
+show_errors: true
+
 database: 
+  enabled: false
   type: mysql
-  host: mysql.slact.net
-  username: localuser
-  password: wavylocal22
+  host: localhost
+  username: dummyuser
+  password: dummypassword
   db: webylene
 
   
@@ -11,22 +16,16 @@ session:
   storage: database
   name: session
   
-  #if engine=database, what table do we use?
+  #if engine:database, what table do we use?
   table: session
-  
-  #if engine=filesystem, what path do we use?
+  #if engine:filesystem, what path do we use?
   path: /tmp
-  
   #expiration time in seconds
   expires: 3600
-  
   #chance that the session garbage collector will run on a given request
-  gc_chance: 0.5
+  gc_chance: 0.05
   
 user:
-  
-  #stave off rainbow table attacks. CHANGE THIS to some random string.
-  password_salt: ~p„R÷Ú¯Bµ≥d¿∫⁄·b≤÷
   table: user
   username_column: username
   password_column: password
