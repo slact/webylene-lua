@@ -40,15 +40,16 @@ do
 				
 			local os_entropy_fountain, err = io.open("/dev/urandom", "r") --quality randomness, please.
 			local seed
-			if foo then
+			if os_entropy_fountain then
 				local rstr = os_entropy_fountain:read(6) --48 bits, please.
 				os_entropy_fountain:close()
-				for i=0,5,1 do
-					seed = seed + (rstr:byte() * 256^i) --note: not necessarily platform-safe...
+				seed=0
+				for i=0,5 do
+					seed = seed + (rstr:byte(i+1) * 256^i) --note: not necessarily platform-safe...
 				end
 			else --we aren't in a POSIX world, are we. oh well.
 				seed = os.time() + 1/(math.abs(os.clock()) +1)
-				logger:warn("Session ID random number generation seed sucks.")
+				logger:warn("Session ID RNG seed sucks.")
 			end
 			assert(seed, "Invalid seed for Session ID RNG. Bailing.")
 			entropy_fountain = assert(mersenne_twister.new(seed), "Unable to start Session ID RNG (mersenne twister)")
