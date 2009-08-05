@@ -157,9 +157,22 @@ stuff_available_to_a_template = setmetatable({
 	url_decode = wsapi.util.url_decode,
 	
 	htmlentities = string.htmlentities,
-	htmlunentities = string.htmlunentities
+	htmlunentities = string.htmlunentities,
 	
-}, {__index=_G})
+	webylene = webylene,
+	type=type,
+	tostring=tostring,
+	tonumber=tonumber,
+	pairs = pairs, 
+	ipairs = ipairs, 
+	print = print,
+	write = write,
+	assert=assert,
+	table=table,
+	string=string,
+	os=os
+	
+}, {__index=webylene})
 	
 --- template output workhorse.
 page_out = function(self, templateName, locals, layout, outputfunction)
