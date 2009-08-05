@@ -90,12 +90,11 @@ do
 		end)
 	end
 
-	local thirtytwo=2^32
 	session.generate_id = function(self)
 		assert(entropy_fountain, "Session ID - generating Random Number Generator (mersenne twister) hasn't been seeded yet. I refuse to continue.")
 		return ("%08x%08x%08x%08x"):format(
-			entropy_fountain(0, thirtytwo), entropy_fountain(0, thirtytwo), 
-			entropy_fountain(0, thirtytwo), entropy_fountain(0, thirtytwo))
+			entropy_fountain(0, 0xFFFFFFFF), entropy_fountain(0, 0xFFFFFFFF), 
+			entropy_fountain(0, 0xFFFFFFFF), entropy_fountain(0, 0xFFFFFFFF))
 		-- with a 128-bit session id, a collission will only start to
 		-- occur once out of 10^18 times when the userbase reaches 10^10.
 		-- Those are numbers I can live with without checking for collisions
@@ -184,7 +183,7 @@ engines = {
 			local res, err
 			if db.driver=="mysql" then
 				res, err = db:query(("INSERT INTO %s SET id='%s', data='%s', timestamp=%s ON DUPLICATE KEY UPDATE data='%s', timestamp=%s"):format(
-									self.table,  safe_id,  safe_data,          now,                         safe_data,         now))
+											self.table,  safe_id,  safe_data,          now,                         safe_data,         now))
 			elseif db.driver=="sqlite" then
 				error("not yet.")
 			else
