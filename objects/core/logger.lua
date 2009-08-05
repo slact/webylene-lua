@@ -52,7 +52,7 @@ logger =
 			self:info("initialized without incident.")
 		end)
 		
-		event:addFinishListener("shutdown", function()
+		event:addStartListener("shutdown", function()
 			self:info("shutting down.")
 		end)
 	end

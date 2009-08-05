@@ -28,6 +28,13 @@ do
 	
 	--- the event thinger
 	event = {
+	
+		init = function(self)
+			self:addFinishListener("shutdown", function()
+				self:reset()
+			end)
+		end,
+	
 		--- is eventName active?
 		active = function(self, eventName)
 			return activeEvents[eventName]
