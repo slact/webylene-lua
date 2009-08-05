@@ -41,7 +41,8 @@ database = {
 			db_settings=cf("database") -- these will be loaded by now.
 			if not db_settings then return nil, "no database config. ain't even gonna try to connect" end
 			if db_settings.disabled==true or db_settings.enabled==false then
-				
+				logger:warn("database connection disabled")
+				return nil, "database connection disabled"
 			end
 			db_instance = assert(self:new(db_settings.type))
 			webylene.db = db_instance --- ############ Let this not slip by thine eyes ############
@@ -134,12 +135,21 @@ db_mt = { __index = {
 	-- @param str query
 	-- @return query result or [nil, err_message] on error
 	query = function(self, str)
+		local conn, success, res, err = self.connection, nil, nil, nil
 		
-		--assert(self.logging_conn:execute(("INSERT INTO logsql SET connection = '%s', query= '%s', stack='%s'"):format(self:esc(tostring(self.connection)), self:esc(str), self:esc(debug.traceback("", 2)))))
-		
-		local res, err = self.connection:execute(str)
+		success, res, err = pcall(conn.execute, conn, str)
+		if not success then -- connection closed maybe? try to reconnect then.
+			logger:info("Failed executing query: " .. (tostring(res) or "?") .. ".")
+			if not pcall(self.connect, self) then
+				logger:info("Also, failed to reconnect to database.")
+			end
+			success, res, err = pcall(conn.execute, conn, str)
+			res, err = success and res, success and err or res
+		end
 		if res == nil then
-			return nil, err .. ". QUERY WAS: " .. str
+			local error = err .. ". QUERY WAS: " .. str
+			logger:warn(error)
+			return nil, error
 		end
 		return res
 	end,
@@ -189,7 +199,12 @@ db_mt = { __index = {
 	--- escape quotes n' such to avoid an SQL injection
 	-- @param str string to escape
 	esc = function(self, str)
-		return self.connection:escape(str)
+		local t = type(str)
+		if t=="string" or t=="number" then
+			return self.connection:escape(str)
+		else
+			return nil, "bad argument to db esc (string or number expected, got " .. type(str)
+		end
 	end,
 	
 	--- format a time to sql-standard date format
