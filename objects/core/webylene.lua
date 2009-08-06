@@ -24,17 +24,15 @@ webylene = {
 		--let local requires work.
 		package.path = self.path .. slash .. "share" .. slash .. "?.lua;" .. self.path .. slash .. "share" .. slash .. "?" .. slash .. "init.lua;" .. package.path
 		
-		local init = function()
-			
-		end
-		assert(xpcall(function()
+		local res, err = xpcall(function()
 			self:import("core")
 			core_request=self.core.request
 			self.core:initialize()
 		end,
 		function(err)
-			return "Initializing:" .. err .. "\r\n" .. debug.traceback("", 2)
-		end))
+			return ("Initialization error: %s\r\n%s"):format(err, debug and debug.traceback("", 2) or "(backtrace unavailable because I have no access to the debug library)")
+		end)
+		if not res then error(err,0) end
 		return self
 	end,
 	
