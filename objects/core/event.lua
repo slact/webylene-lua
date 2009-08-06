@@ -96,14 +96,23 @@ do
 			if when ~= "start" and when ~= "during" and when ~= "finish" then
 				error("unknown event timing: " .. when .. ". must be 'start', 'during', or 'finish'... or nil")
 			end
-			if self:active("request") then -- we aren't supposed to be adding any events at all when a request is active.
-				error("deep, potentially concurrent shit.")
-			end
 			table.insert(listeners[eventName][when], listener) --add the event!
 			if when=="during" and self:active(eventName) then
 				listener()
 			end
 			return self
+		end,
+		
+		removeListener = function(self, eventName, listener)
+			for when, listeners in pairs(listeners[eventName]) do
+				for i, lis in ipairs(listeners) do
+					if lis==listener then
+						table.remove(listeners,i)
+						return self
+					end
+				end
+			end
+			return nil, "listener not found"
 		end,
 		
 		addStartListener = function(self, eventName, listener)
