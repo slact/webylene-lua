@@ -4,6 +4,14 @@
 local req = require "wsapi.request"
 local resp = require "wsapi.response"
 
+local core_request, erry = nil, function(err)
+	if not webylene.config or (type(webylene.config)=="table" and webylene.config.show_backtrace) then
+		return err ..  "\r\n" .. debug.traceback("", 2)
+	else
+		return err
+	end
+end
+
 webylene = {
 	--- environmental bootstrapping. figure out where we are and whatnot
 	initialize = function(self, path, environment)
@@ -16,17 +24,29 @@ webylene = {
 		--let local requires work.
 		package.path = self.path .. slash .. "share" .. slash .. "?.lua;" .. self.path .. slash .. "share" .. slash .. "?" .. slash .. "init.lua;" .. package.path
 		
-		self:import("core")
-		self.core:initialize()
+		local res, err = xpcall(function()
+			self:import("core")
+			core_request=self.core.request
+			self.core:initialize()
+		end,
+		function(err)
+			return ("Initialization error: %s\r\n%s"):format(err, debug and debug.traceback("", 2) or "(backtrace unavailable because I have no access to the debug library)")
+		end)
+		if not res then error(err,0) end
+		return self
 	end,
 	
 	--- process a wsapi request
 	wsapi_request = function(self, wsapi_env)
-		self.request = setmetatable(req.new(wsapi_env), {__index=wsapi_env})
-		self.request.env = wsapi_env
-		self.response = resp.new()
-		self.core:request()
-		return self.response:finish()
+		local request = setmetatable(req.new(wsapi_env), {__index=wsapi_env}) 
+		request.env = wsapi_env
+		self.response, self.request = resp.new(), request
+		local succ, err = xpcall(core_request, erry) --make sure errors are not hidden -- the bootstrap does not generate stack traces on error
+		if succ then
+			return self.response:finish()
+		else
+			error(err, 0)
+		end
 	end,
 
 	path_separator = PATH_SEPARATOR,

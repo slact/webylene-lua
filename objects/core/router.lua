@@ -34,7 +34,7 @@
 
 local rex = require "rex_pcre"
 local webylene, event = webylene, event
-local parser, script_printf_path, walk_path, parseurl, arrive --closureds
+local parser, script_printf_path, walk_path, parseurl, arrive, raw_arrive --closureds
 
 router = {
 	init = function(self)
@@ -83,7 +83,7 @@ router = {
 		local d500 = self.settings["500"]
 		event:finish("route500")
 		assert(d500, error_message .. ". Additionally, 500 page handler script not found -- bailing.")
-		return arrive(self, parser.parseRoute({path=" ", ref="500", destination=self.settings["500"], param={error=error_message, trace=trace}}), true)
+		return raw_arrive(self, parser.parseRoute({path=" ", ref="500", destination=self.settings["500"], param={error=error_message, trace=trace}}), true)
 	end,
 	
 	setTitle=function(self, title)
@@ -267,15 +267,21 @@ do
 		return chunk
 	end})
 	
+	
 	--- stuff to do upon finishing the routing.
 	-- @param self router object
 	-- @param route the route that could. (could match the request url, that is.)
 	-- @param unprotected set this to true only if you want an error to trigger a total shutdown (and restart) of webylene. used when routing to a 500 page to avoid possible infinite loops.
 	arrive = function(self, route, unprotected)
-		table.mergeWith(request.params, route.param) --add route's predefined params to the params table
 		self.currentRoute = route
 		
 		event:start("arrive")
+		raw_arrive(self, route, unprotected)
+		event:finish("arrive")
+	end
+	
+	raw_arrive = function(self, route, unprotected)
+		table.mergeWith(request.params, route.param) --add route's predefined params to the params table
 		local scriptpath=script_printf_path:format(route.destination.script)
 		local script_return --a script will return a function when it wants said function to respond to routing requests. TODO: this comment needs to explain the idea better.
 		if not unprotected then
@@ -295,6 +301,5 @@ do
 			-- an unfinished event is the least of your concerns. unless you were routing to 
 			-- an error page, what the hell are you doing using an unprotected arrival?
 		end
-		event:finish("arrive")
 	end
 end 

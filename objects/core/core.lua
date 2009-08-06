@@ -33,7 +33,7 @@ local webylene = webylene
 local load_config, load_objects  --closured for fun and profit. mostly fun.
 core = {
 	--- initialize webylene
-	initialize = function(self)
+	initialize = function()
 		local ev = webylene.event
 		local logger = webylene.logger
 		logger:info("started webylene " .. ((type(webylene.env)=="string") and ("in " .. webylene.env .. " environment") or "without an environment parameter") ..  " with path " .. webylene.path)
@@ -45,38 +45,38 @@ core = {
 			
 			--load config
 			ev:start("loadConfig")
-				load_config(self, "config", "lua")
-				load_config(self, "config", "yaml")
+				load_config("config", "lua")
+				load_config("config", "yaml")
 			ev:finish("loadConfig")
 		
 			--load core objects
 			ev:start("loadCore")
-				load_objects(self, "objects/core")
+				load_objects("objects/core")
 			ev:finish("loadCore")
 			
 			--load plugin objects
 			ev:start("loadPlugins")
-				load_objects(self, "objects/plugins")
+				load_objects("objects/plugins")
 			ev:finish("loadPlugins")
 		ev:finish("initialize")
 	end,
 	
 	--- respond to a request
-	request = function(self)
+	request = function()
 		local e = webylene.event
 		e:start("request")
 			e:fire("route")
 		e:finish("request")
 	end,
 	
-	shutdown = function(self)
+	shutdown = function()
 		webylene.event:fire("shutdown")
 	end
 }
 	
 --- load config files of type <extension> from path <relative_path>. if <relative_path> is a folder, load all files with extension <extension>
 --remember, this is local.
-load_config = function(self, relative_path, extension)
+load_config = function(relative_path, extension)
 	extension = extension or "yaml"
 	local loadFile = {
 		yaml = function(path)
@@ -86,7 +86,9 @@ load_config = function(self, relative_path, extension)
 			local success, conf = pcall(yaml.load, f:read("*all"))
 			f:close()
 			if not success then 
-				error("Error loading yaml file " .. path ..":\n" .. conf, 0)
+				local err = "Error loading yaml file " .. path ..":\n" .. conf
+				logger:error(err)
+				error(err, 0)
 			end
 			if conf.env and conf.env[webylene.env] then	
 				table.mergeRecursivelyWith(conf, conf.env[webylene.env])
@@ -106,12 +108,12 @@ load_config = function(self, relative_path, extension)
 			loadFile[extension](absolute_path .. webylene.path_separator .. file)
 		end
 	end
-	return self
+	return true
 end
 	
 --- load all objects in lua files in relativePath
 --remember, this is local.
-load_objects = function(self, relativePath)
+load_objects = function(relativePath)
 	local absolutePath = webylene.path .. webylene.path_separator .. relativePath
 	local webylene = webylene -- so that we don't have to go metatable-hopping all the time
 	local extension = "lua"
@@ -121,5 +123,5 @@ load_objects = function(self, relativePath)
 			local obj = webylene[file:sub(1, -extension_cutoff)]
 		end
 	end
-	return self
+	return true
 end

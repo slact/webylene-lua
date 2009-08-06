@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/posixy things, "\" for windowsy systems
 local protocol, path, reload, environment
-local version = "0.dev"
+local version = "0.9"
 --parse command-line parameters
 local getopt = require "alt_getopt"
 local helpstr = [[webylene bootstrap.
@@ -65,23 +65,24 @@ if not connector then print(protocol .. ' protocol ' .. (connector == false and 
 local webylene_object_path = path .. PATH_SEPARATOR .. "objects" .. PATH_SEPARATOR .. "core" .. PATH_SEPARATOR .. "webylene.lua"
 require (("wsapi.%s"):format(connector))
 
-local function initialize(previous_error)
-	if previous_error then pcall(webylene.logger.fatal, webylene.logger, previous_error) end
+local wsapi_request
+local function initialize()
 	local s, err = pcall(dofile, webylene_object_path) if not s then error(err,0) end
 	setmetatable(_G, {__index = webylene}) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
 	webylene:initialize(path, environment)
+	wsapi_request = webylene.wsapi_request
 end
 initialize()
 
-local wsapi_request = webylene.wsapi_request
 wsapi[connector].run(function(env)
 	local success, status, headers, iterator = pcall(wsapi_request, webylene, env)
 	if not success or reload then -- oh shit, bad error. let the parent environment handle it.
-		pcall(function() webylene.core:shutdown("shutdown") end) --to to tell it to shut down
-		initialize((not success) and status)
+		if not success then  pcall(webylene.logger.fatal, webylene.logger, status) end
+		pcall(webylene.core.shutdown) --to to tell it to shut down
+		initialize()
 		if not success then 
-			return 500, {['Content-Type']='text/plain'}, coroutine.wrap(function() 
-				coroutine.yield((webylene and webylene.config.show_errors==true) and "ERROR: " .. status or "A bad error happened. We'll fix it, we promise!") 
+			return "500 Server Error", {['Content-Type']='text/plain'}, coroutine.wrap(function() 
+				coroutine.yield((webylene and webylene.config.show_errors==true) and ("FATAL ERROR: " .. status) or "A bad error happened. We'll fix it, we promise!") 
 			end)
 		end
 	end

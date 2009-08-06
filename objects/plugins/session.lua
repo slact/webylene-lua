@@ -40,15 +40,16 @@ do
 				
 			local os_entropy_fountain, err = io.open("/dev/urandom", "r") --quality randomness, please.
 			local seed
-			if foo then
+			if os_entropy_fountain then
 				local rstr = os_entropy_fountain:read(6) --48 bits, please.
 				os_entropy_fountain:close()
-				for i=0,5,1 do
-					seed = seed + (rstr:byte() * 256^i) --note: not necessarily platform-safe...
+				seed=0
+				for i=0,5 do
+					seed = seed + (rstr:byte(i+1) * 256^i) --note: not necessarily platform-safe...
 				end
 			else --we aren't in a POSIX world, are we. oh well.
 				seed = os.time() + 1/(math.abs(os.clock()) +1)
-				logger:warn("Session ID random number generation seed sucks.")
+				logger:warn("Session ID RNG seed sucks.")
 			end
 			assert(seed, "Invalid seed for Session ID RNG. Bailing.")
 			entropy_fountain = assert(mersenne_twister.new(seed), "Unable to start Session ID RNG (mersenne twister)")
@@ -89,12 +90,11 @@ do
 		end)
 	end
 
-	local thirtytwo=2^32
 	session.generate_id = function(self)
 		assert(entropy_fountain, "Session ID - generating Random Number Generator (mersenne twister) hasn't been seeded yet. I refuse to continue.")
 		return ("%08x%08x%08x%08x"):format(
-			entropy_fountain(0, thirtytwo), entropy_fountain(0, thirtytwo), 
-			entropy_fountain(0, thirtytwo), entropy_fountain(0, thirtytwo))
+			entropy_fountain(0, 0xFFFFFFFF), entropy_fountain(0, 0xFFFFFFFF), 
+			entropy_fountain(0, 0xFFFFFFFF), entropy_fountain(0, 0xFFFFFFFF))
 		-- with a 128-bit session id, a collission will only start to
 		-- occur once out of 10^18 times when the userbase reaches 10^10.
 		-- Those are numbers I can live with without checking for collisions
@@ -183,7 +183,7 @@ engines = {
 			local res, err
 			if db.driver=="mysql" then
 				res, err = db:query(("INSERT INTO %s SET id='%s', data='%s', timestamp=%s ON DUPLICATE KEY UPDATE data='%s', timestamp=%s"):format(
-									self.table,  safe_id,  safe_data,          now,                         safe_data,         now))
+											self.table,  safe_id,  safe_data,          now,                         safe_data,         now))
 			elseif db.driver=="sqlite" then
 				error("not yet.")
 			else

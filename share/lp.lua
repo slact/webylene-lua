@@ -56,7 +56,7 @@ function translate (s)
 	end
 	s = gsub(s, "<%%(.-)%%>", "<?lua %1 ?>")
 	
-	local res = {}
+	local res = {("local %s=%s; "):format(outfunc, outfunc)}
 	local start = 1   -- start of untranslated part in `s'
 	while true do
 		local ip, fp, target, exp, code = find(s, "<%?(%w*)[ \t]*(=?)(.-)%?>", start)
