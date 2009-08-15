@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
-PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/posixy things, "\" for windowsy systems
-local protocol, path, reload, environment
-local version = "0.dev"
+local PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/posixy things, "\" for windowsy systems
+local protocol, path, reload, environment, log_file
+local version = "0.91"
 --parse command-line parameters
 local getopt = require "alt_getopt"
 local helpstr = [[webylene bootstrap.
@@ -18,11 +18,12 @@ Options:
                       Useful for development. This does not reload modules and
                       does _not_ reset the lua environment. Applicable only 
                       when a persistent protocol is used (fcgi, proxy, scgi).
+  -l, --log           log file. Default to logs/webylene.log
   -h, --help          This help message.
   -v, --version       Display version information.
 ]]
-local success, opts = pcall(getopt.get_opts, {...}, "p:P:e:hv", {
-	path='p', protocol='P', env='e', environment='e', reload=0, help='h', version='v'
+local success, opts = pcall(getopt.get_opts, {...}, "p:P:e:l::hv", {
+	path='p', protocol='P', env='e', environment='e', reload=0, help='h', version='v', log='l'
 })
 if not success then io.stderr:write(opts) return 1 end
 for a, v in pairs(opts) do
@@ -32,6 +33,8 @@ for a, v in pairs(opts) do
 		path = v
 	elseif a=="reload" then
 		reload = true
+	elseif a=='l' then
+		log_file = v
 	elseif a=="e" then
 		environment=v
 	elseif a=="v" then
@@ -52,6 +55,7 @@ if not path then --framework, find thyself!
 	if path then io.stderr:write("path was not specified. guessed it to be '" .. tostring(path) .. "'\n") end
 end
 if not path then io.stderr:write("couldn't find webylene project path. try -h for help.\n") return 1 end
+
 local protocol_connector = { --known protocol handlers
 	cgi = 'cgi',
 	fastcgi = 'fastcgi',
@@ -61,28 +65,37 @@ local protocol_connector = { --known protocol handlers
 }
 local connector = protocol_connector[protocol]
 if not connector then print(protocol .. ' protocol ' .. (connector == false and 'not yet implemented.' or 'unknown.')) return 1 end
-
-local webylene_object_path = path .. PATH_SEPARATOR .. "objects" .. PATH_SEPARATOR .. "core" .. PATH_SEPARATOR .. "webylene.lua"
 require (("wsapi.%s"):format(connector))
+
+--let local requires work
+package.path =	   path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?.lua;" 
+				.. path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?" .. PATH_SEPARATOR .. "init.lua;" 
+				.. package.path
 
 local wsapi_request
 local function initialize()
-	local s, err = pcall(dofile, webylene_object_path) if not s then error(err,0) end
+	require "webylene"
 	setmetatable(_G, {__index = webylene}) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
-	webylene:initialize(path, environment)
-	wsapi_request = webylene.wsapi_request
+	webylene:set_config("log_file", log_file)
+	local res, err = pcall(webylene.initialize, webylene, path, environment, PATH_SEPARATOR)
+	if not res then
+		if rawget(webylene, 'logger') then pcall(webylene.logger.fatal, webylene.logger, err) end
+		wsapi_request = function() error(err, 0) end
+	else
+		wsapi_request = webylene.wsapi_request
+	end
 end
 initialize()
 
 wsapi[connector].run(function(env)
 	local success, status, headers, iterator = pcall(wsapi_request, webylene, env)
 	if not success or reload then -- oh shit, bad error. let the parent environment handle it.
-		if not success then  pcall(webylene.logger.fatal, webylene.logger, status) end
-		pcall(webylene.core.shutdown) --to to tell it to shut down
+		if not success and rawget(webylene, "logger") then  pcall(webylene.logger.fatal, webylene.logger, status) end
+		if rawget(webylene, "core") then pcall(webylene.core.shutdown) end --to to tell it to shut down
 		initialize()
 		if not success then 
 			return "500 Server Error", {['Content-Type']='text/plain'}, coroutine.wrap(function() 
-				coroutine.yield((webylene and webylene.config.show_errors==true) and ("FATAL ERROR: " .. status) or "A bad error happened. We'll fix it, we promise!") 
+				coroutine.yield((webylene and webylene.config.show_errors~=false) and ("FATAL ERROR: " .. status) or "A bad error happened. We'll fix it, we promise!") 
 			end)
 		end
 	end
