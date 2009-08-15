@@ -36,7 +36,12 @@ require "logging.file"
 logger = 
 {
 	init = function(self)
-		local logger = assert(logging.file(webylene.path .. "/logs/webylene.log"))
+		local logpath = cf("log_file") or "logs/webylene.log"
+		if not logpath:match("^" .. webylene.path_separator) then
+			logpath = webylene.path .. webylene.path_separator .. logpath
+		end
+		local logger, err = logging.file(logpath)
+		if not logger then error("logger: " .. err, 0) end
 		setmetatable(self, {__index=logger})
 		
 		--log important webylene loading events

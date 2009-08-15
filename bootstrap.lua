@@ -1,6 +1,6 @@
-#!/usr/bin/env luajit
+#!/usr/bin/env lua
 local PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/posixy things, "\" for windowsy systems
-local protocol, path, reload, environment, log_path
+local protocol, path, reload, environment, log_file
 local version = "0.dev"
 --parse command-line parameters
 local getopt = require "alt_getopt"
@@ -18,11 +18,12 @@ Options:
                       Useful for development. This does not reload modules and
                       does _not_ reset the lua environment. Applicable only 
                       when a persistent protocol is used (fcgi, proxy, scgi).
+  -l, --log           log file. Default to logs/webylene.log
   -h, --help          This help message.
   -v, --version       Display version information.
 ]]
-local success, opts = pcall(getopt.get_opts, {...}, "p:P:e:hv", {
-	path='p', protocol='P', env='e', environment='e', reload=0, help='h', version='v'
+local success, opts = pcall(getopt.get_opts, {...}, "p:P:e:l::hv", {
+	path='p', protocol='P', env='e', environment='e', reload=0, help='h', version='v', log='l'
 })
 if not success then io.stderr:write(opts) return 1 end
 for a, v in pairs(opts) do
@@ -32,6 +33,8 @@ for a, v in pairs(opts) do
 		path = v
 	elseif a=="reload" then
 		reload = true
+	elseif a=='l' then
+		log_file = v
 	elseif a=="e" then
 		environment=v
 	elseif a=="v" then
@@ -73,7 +76,7 @@ local wsapi_request
 local function initialize()
 	require "webylene"
 	setmetatable(_G, {__index = webylene}) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
-	webylene:set_config("log_path", log_path)
+	webylene:set_config("log_file", log_file)
 	local res, err = pcall(webylene.initialize, webylene, path, environment, PATH_SEPARATOR)
 	if not res then
 		if rawget(webylene, 'logger') then pcall(webylene.logger.fatal, webylene.logger, err) end

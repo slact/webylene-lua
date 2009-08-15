@@ -81,7 +81,7 @@ local core_request, erry = nil, function(err)
 end
 
 --- environmental bootstrapping. figure out where we are and whatnot
-initialize = function(self, webylene_path, environment, log_path, slash)
+initialize = function(self, webylene_path, environment, slash)
 	assert(webylene_path, "Webylene project path is a must!")
 	--assert(environment, "Webylene environment is a must!") --environment is really quite optional
 	slash = slash or "/"
