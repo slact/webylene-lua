@@ -16,7 +16,7 @@ require "wsapi.util"
 local output_function_name = "write"
 
 local webylene, event, cf= webylene, webylene.event, cf
-local discover_templates, stuff_available_to_a_template, page_out --this smells of header files...
+local discover_templates, stuff_available_to_a_template, page_out, include --this smells of header files...
 
 --and finally the main course
 template = {
@@ -103,12 +103,54 @@ discover_templates = function(self, extension)
 	return discovered
 end
 
+--- stuff available from inside a template. 
+locals_metatable = {
+	__index = setmetatable({ 
+		myChild = function(locals)
+			locals = locals or getfenv(2)
+			local child = locals.child
+			locals.child = nil
+			--any way i can make the following relative?
+			include(self, child, locals)
+		end,
+		
+		pageTitle = function()
+			--print(table.show(webylene.router.currentRoute))
+			return router:getTitle()
+		end,
+		
+		ref = function()
+			return router:getRef()
+		end,
+		
+		url_encode = wsapi.util.url_encode,
+		url_decode = wsapi.util.url_decode,
+		
+		htmlentities = string.htmlentities,
+		htmlunentities = string.htmlunentities,
+		
+		webylene = webylene,
+		type=type,
+		tostring=tostring,
+		tonumber=tonumber,
+		pairs = pairs, 
+		ipairs = ipairs, 
+		print = print,
+		write = write,
+		assert=assert,
+		table=table,
+		string=string,
+		os=os
+		
+	}, {__index=webylene})
+}	
+
 local prepare_locals = function(self, locals)
 	locals = locals or {}
-	return setmetatable(locals, {__index=stuff_available_to_a_template})
+	return setmetatable(locals, locals_metatable)
 end
 
-local include do
+do
 	-- mmm, cache...
 	local memoized_path = setmetatable({}, {__mode='k', __index = function(t,template)
 		local absolute_path = webylene.path .. webylene.path_separator .. "templates" .. webylene.path_separator .. template.path
@@ -133,46 +175,6 @@ local include do
 		end
 	end	
 end
-
---- stuff available from inside a template. 
-stuff_available_to_a_template = setmetatable({ 
-	myChild = function(locals)
-		locals = locals or getfenv(2)
-		local child = locals.child
-		locals.child = nil
-		--any way i can make the following relative?
-		include(self, child, locals)
-	end,
-	
-	pageTitle = function()
-		--print(table.show(webylene.router.currentRoute))
-		return router:getTitle()
-	end,
-	
-	ref = function()
-		return router:getRef()
-	end,
-	
-	url_encode = wsapi.util.url_encode,
-	url_decode = wsapi.util.url_decode,
-	
-	htmlentities = string.htmlentities,
-	htmlunentities = string.htmlunentities,
-	
-	webylene = webylene,
-	type=type,
-	tostring=tostring,
-	tonumber=tonumber,
-	pairs = pairs, 
-	ipairs = ipairs, 
-	print = print,
-	write = write,
-	assert=assert,
-	table=table,
-	string=string,
-	os=os
-	
-}, {__index=webylene})
 	
 --- template output workhorse.
 page_out = function(self, templateName, locals, layout, outputfunction)
@@ -181,8 +183,9 @@ page_out = function(self, templateName, locals, layout, outputfunction)
 	assert(template_settings, "template '" .. templateName .. "' not found")
 	
 	locals = locals or {}
-	layout = (type(layout)=='string' and sets.layouts[layout]) or self.layout or sets.layouts.default
-	
+	if layout ~= false then
+		layout = (type(layout)=='string' and sets.layouts[layout]) or self.layout or sets.layouts.default
+	end
 
 	local template_data = template_settings.data
 	if template_data then
