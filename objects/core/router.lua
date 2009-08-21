@@ -50,7 +50,7 @@ router = {
 			if not uri or #uri==0 then
 				uri = request.env.REQUEST_URI
 			end
-			self:route(uri)
+			return self:route(uri)
 		end)
 	end,
 
