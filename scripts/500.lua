@@ -5,5 +5,5 @@ if string.lower(response['content-type'] or "") == 'text/plain' then
 	print(request.params.error or "")
 	print(request.params.trace or "")
 else
-	template:out("500", {error = request.params.error, trace = request.params.trace})
+	template:out("500", {error = webylene.config.show_errors and request.params.error, trace = webylene.config.show_backtrace and request.params.trace})
 end

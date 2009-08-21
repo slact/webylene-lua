@@ -79,7 +79,7 @@ router = {
 	--if there was an error executing a page script
 	route500 = function(self, error_message, trace)
 		event:start("route500")
-		logger:error(error_message)
+		logger:error(error_message .. (webylene.config.show_backtrace==true and trace or ""))
 		local d500 = self.settings["500"]
 		event:finish("route500")
 		assert(d500, error_message .. ". Additionally, 500 page handler script not found -- bailing.")
