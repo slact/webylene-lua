@@ -65,6 +65,7 @@ local protocol_connector = { --known protocol handlers
 }
 local connector = protocol_connector[protocol]
 if not connector then print(protocol .. ' protocol ' .. (connector == false and 'not yet implemented.' or 'unknown.')) return 1 end
+
 require (("wsapi.%s"):format(connector))
 
 --let local requires work
@@ -74,6 +75,7 @@ package.path =	   path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?.lua;
 
 local wsapi_request
 local function initialize()
+	package.loaded.webylene, webylene = nil, nil;
 	require "webylene"
 	setmetatable(_G, {__index = webylene}) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
 	webylene:set_config("log_file", log_file)
