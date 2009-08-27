@@ -41,7 +41,7 @@ Webylene
 6. What licence is it distributed under?
   The New BSD licence:
   
-  Copyright (c) 2007-2009, Leo Ponomarev
+  Copyright (c) 2008-2009, Leo Ponomarev
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without 
