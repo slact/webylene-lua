@@ -81,20 +81,23 @@ local function initialize()
 	webylene:set_config("log_file", log_file)
 	local res, err = pcall(webylene.initialize, webylene, path, environment, PATH_SEPARATOR)
 	if not res then
-		if rawget(webylene, 'logger') then pcall(webylene.logger.fatal, webylene.logger, err) end
 		wsapi_request = function() error(err, 0) end
 	else
 		wsapi_request = webylene.wsapi_request
 	end
+end
+local function wsapi_request_recovery_pretender(self, ...)
+	initialize()
+	return wsapi_request(webylene, ...)
 end
 initialize()
 
 wsapi[connector].run(function(env)
 	local success, status, headers, iterator = pcall(wsapi_request, webylene, env)
 	if not success or reload then -- oh shit, bad error. let the parent environment handle it.
+		wsapi_request = wsapi_request_recovery_pretender
 		if not success and rawget(webylene, "logger") then  pcall(webylene.logger.fatal, webylene.logger, status) end
 		if rawget(webylene, "core") then pcall(webylene.core.shutdown) end --to to tell it to shut down
-		initialize()
 		if not success then 
 			return "500 Server Error", {['Content-Type']='text/plain'}, coroutine.wrap(function() 
 				coroutine.yield((webylene and webylene.config.show_errors~=false) and ("FATAL ERROR: " .. status) or "A bad error happened. We'll fix it, we promise!") 
