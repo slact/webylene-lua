@@ -104,14 +104,16 @@ do
 		end,
 		
 		removeListener = function(self, eventName, listener)
+			local found = false
 			for when, listeners in pairs(listeners[eventName]) do
 				for i, lis in ipairs(listeners) do
 					if lis==listener then
+						found = true
 						table.remove(listeners,i)
-						return self
 					end
 				end
 			end
+			if found then return self end
 			return nil, "listener not found"
 		end,
 		
