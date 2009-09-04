@@ -134,7 +134,6 @@ db.new = function(self, database_type)
 		-- @param str query
 		-- @return query result or [nil, err_message] on error
 		query = function(self, str)
-			require "utilities.debug"
 			local conn, res, err = self.connection, nil, nil
 			res, err = conn:execute(str)
 			if not res and type(err)=="string" and err:match("MySQL server has gone away") then
