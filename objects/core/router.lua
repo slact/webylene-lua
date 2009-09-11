@@ -123,7 +123,10 @@ parseurl = function(url)
 	return res
 end
 local path_regex = setmetatable({}, {__index=function(t,match_str)
-	local r = rex.new("^" .. match_str .. "$")
+	local suc, r = pcall(rex.new, "^" .. match_str .. "$")
+	if not suc then
+		error(('Invalid router path regular expression "%s" : %s'):format(match_str, r), 0)
+	end	
 	rawset(t, match_str, r)
 	return r
 end})
