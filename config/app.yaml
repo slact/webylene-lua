@@ -4,6 +4,7 @@ show_errors: true
 
 database: 
   enabled: false
+  log_all_queries: false
   type: mysql
   host: localhost
   username: dummyuser

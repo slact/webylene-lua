@@ -1,5 +1,5 @@
 local webylene, event = webylene, event
-
+local log_all_queries
 --- the database class. uses LuaSQL to talk to databases.
 --- see http://www.keplerproject.org/luasql/manual.html for more info.
 --- LuaSQL (as of version 2.1.1) supports ODBC, ADO, Oracle, MySQL, SQLite, and PostgreSQL.
@@ -37,6 +37,10 @@ db = {
 		if db_settings.disabled==true or db_settings.enabled==false then
 			logger:warn("database connection disabled")
 			return nil, "database connection disabled"
+		end
+		
+		if db_settings.log_all_queries then
+			log_all_queries = true
 		end
 		
 		--create thyself
@@ -149,6 +153,8 @@ db.new = function(self, database_type)
 				local error = err .. ". Query was: " .. str
 				logger:warn(error)
 				return nil, error
+			elseif log_all_queries then
+				logger:info("Executed query: " .. str)
 			end
 			return res
 		end,
