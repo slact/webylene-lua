@@ -33,8 +33,10 @@
 
 
 local rex = require "rex_pcre"
-local webylene, event = webylene, event
+local webylene, event, tinsert = webylene, event, table.insert
 local parser, script_printf_path, walk_path, parseurl, arrive, raw_arrive --closureds
+local routes = {}
+
 
 router = {
 	init = function(self)
@@ -42,6 +44,12 @@ router = {
 		event:addListener("initialize",function()
 			self.settings=assert(cf("router"), "No router config found. bailing.")
 			script_printf_path = webylene.path .. webylene.path_separator .. self.settings.destinations.location .. webylene.path_separator .. "%s" .. self.settings.destinations.extension
+		
+			assert(self.settings.routes, "Routes not found")
+			--initialize routes
+			for i, raw_route in pairs(self.settings.routes) do
+				tinsert(routes, parser.parseRoute(raw_route))
+			end
 		end)
 		
 		--route when it's time to do so
@@ -58,8 +66,7 @@ router = {
 	route = function(self, uri)
 		event:start("route")
 		local url = parseurl(uri).path
-		for i,route in pairs(self.settings.routes) do
-			route = parser.parseRoute(route)
+		for i, route in ipairs(routes) do
 			if walk_path(url, route.path) then
 				event:finish("route")
 				return arrive(self, route)
