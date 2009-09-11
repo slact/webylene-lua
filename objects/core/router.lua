@@ -261,7 +261,7 @@ do
 		if not success then 
 			return nil, router:route500(res.error, res.trace) 
 		else
-			return res
+			return true, res
 		end
 	end
 	
@@ -281,24 +281,27 @@ do
 	--- stuff to do upon finishing the routing.
 	-- @param self router object
 	-- @param route the route that could. (could match the request url, that is.)
-	-- @param unprotected set this to true only if you want an error to trigger a total shutdown (and restart) of webylene. used when routing to a 500 page to avoid possible infinite loops.
-	arrive = function(self, route, unprotected)
+	-- @param dangerous set this to true only if you want an error to trigger a total shutdown (and restart) of webylene. used when routing to a 500 page to avoid possible infinite loops.
+	arrive = function(self, route, dangerous)
 		self.currentRoute = route
 		
 		event:start("arrive")
-		raw_arrive(self, route, unprotected)
+		raw_arrive(self, route, dangerous)
 		event:finish("arrive")
 	end
 	
-	raw_arrive = function(self, route, unprotected)
+	raw_arrive = function(self, route, dangerous)
 		table.mergeWith(request.params, route.param) --add route's predefined params to the params table
 		local scriptpath=script_printf_path:format(route.destination.script)
-		local script_return --a script will return a function when it wants said function to respond to routing requests. TODO: this comment needs to explain the idea better.
-		if not unprotected then
-			script_return = mypcall(scriptcache[scriptpath])
-			if script_return and type(script_return)=="function" then
+		local success, script_return --a script will return a function when it wants said function to respond to routing requests. TODO: this comment needs to explain the idea better.
+		if not dangerous then
+			success, script_return = mypcall(scriptcache[scriptpath])
+			if success and script_return and type(script_return)=="function" then
 				scriptcache[scriptpath]=script_return
-				script_return = mypcall(scriptcache[scriptpath])
+				success, script_return = mypcall(scriptcache[scriptpath])
+			end
+			if not success then --there was an error. uncache the script.
+				scriptcache[scriptpath]=nil
 			end
 		else
 			script_return = assert(scriptcache[scriptpath])()
@@ -309,7 +312,7 @@ do
 			end
 			--yes, this means the 'arrive' event may not finish. but hell, if this errors out,
 			-- an unfinished event is the least of your concerns. unless you were routing to 
-			-- an error page, what the hell are you doing using an unprotected arrival?
+			-- an error page, what the hell are you doing using a dangerous arrival?
 		end
 	end
 end 
