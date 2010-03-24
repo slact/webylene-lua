@@ -1,10 +1,12 @@
 --- the webylene object is responsible for passing on a WSAPI request in a transparent, predictable manner.
 
 --we'll need this stuff right off the bat
+require "luarocks.loader"
 local req = require "wsapi.request"
 local resp = require "wsapi.response"
+
 local xpcall, pcall, error, assert, debug = xpcall, pcall, error, assert, debug
-local ipairs, pairs = ipairs, pairs
+local ipairs, pairs, require = ipairs, pairs, require
 local type, setfenv, loadfile, setmetatable, rawset = type, setfenv, loadfile, setmetatable, rawset
 local _G = _G
 
@@ -80,6 +82,47 @@ local core_request, erry = nil, function(err)
 	end
 end
 
+--- connectors
+do
+	local connectors = {
+		cgi = 'cgi',
+		fastcgi = 'fastcgi',
+		fcgi = 'fastcgi',
+		http = 'xavante',
+		proxy = 'xavante'
+	}
+	
+	initialize_connector = function(connector_name, path, request_processing_function, ...)
+		local connector_module_name = connectors[connector_name]
+		assert(connector_module_name, "unknown protocol " .. connector_name)
+		local connector = require ("wsapi." .. connector_module_name)
+		if(connector_module_name == 'xavante') then
+			local xavante = require "xavante"
+			require "xavante.filehandler"
+			require "xavante.cgiluahandler"
+			require "xavante.redirecthandler"
+			xavante.HTTP {
+				server = { host= "*", port="8080" },
+				defaultHost = {
+			        { -- filehandler
+						match = ".",
+						with = xavante.filehandler,
+						params = { baseDir = path .. "/web"}
+					},
+
+			        { -- Lua Pages example
+			           match = ".",
+			           with = wsapi.xavante.makeHandler(custom_sapi_loader, nil, webdir, webdir),
+			        }
+				}
+			}
+			return xavante.start
+		else
+			return connector.run
+		end
+	end
+end
+
 --- environmental bootstrapping. figure out where we are and whatnot
 initialize = function(self, webylene_path, environment, slash)
 	assert(webylene_path, "Webylene project path is a must!")
@@ -105,7 +148,7 @@ initialize = function(self, webylene_path, environment, slash)
 	if not res then error(err,0) end
 	return self
 end
-	
+
 --- process a wsapi request
 wsapi_request = function(self, wsapi_env)
 	local request = setmetatable(req.new(wsapi_env), {__index=wsapi_env}) 

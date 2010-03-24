@@ -1,4 +1,7 @@
 #!/usr/bin/env lua
+--luarocks
+pcall( require, "luarocks.loader")
+
 local PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/posixy things, "\" for windowsy systems
 local protocol, path, reload, environment, log_file
 local version = "0.dev"
@@ -56,18 +59,6 @@ if not path then --framework, find thyself!
 end
 if not path then io.stderr:write("couldn't find webylene project path. try -h for help.\n") return 1 end
 
-local protocol_connector = { --known protocol handlers
-	cgi = 'cgi',
-	fastcgi = 'fastcgi',
-	fcgi = 'fastcgi',
-	proxy = false, -- not yet implemented
-	scgi = false --not yet implemented
-}
-local connector = protocol_connector[protocol]
-if not connector then print(protocol .. ' protocol ' .. (connector == false and 'not yet implemented.' or 'unknown.')) return 1 end
-
-require (("wsapi.%s"):format(connector))
-
 --let local requires work
 package.path =	   path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?.lua;" 
 				.. path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?" .. PATH_SEPARATOR .. "init.lua;" 
@@ -92,7 +83,7 @@ local function wsapi_request_recovery_pretender(self, ...)
 end
 initialize()
 
-wsapi[connector].run(function(env)
+webylene.initialize_connector(protocol, path, function(env)
 	local success, status, headers, iterator = pcall(wsapi_request, webylene, env)
 	if not success or reload then -- oh shit, bad error. let the parent environment handle it.
 		wsapi_request = wsapi_request_recovery_pretender
