@@ -43,7 +43,7 @@ for a, v in pairs(opts) do
 	elseif a=="v" then
 		print("webylene " .. version)
 		return 0
-	elseif a=="h" then
+	elseif a=="h" then 
 		print(helpstr)  
 		return 0
 	end
@@ -96,4 +96,4 @@ webylene.initialize_connector(protocol, path, function(env)
 		end
 	end
 	return status, headers, iterator
-end)
+end)() 

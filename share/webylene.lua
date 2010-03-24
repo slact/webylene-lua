@@ -1,9 +1,9 @@
 --- the webylene object is responsible for passing on a WSAPI request in a transparent, predictable manner.
 
 --we'll need this stuff right off the bat
-require "luarocks.loader"
 local req = require "wsapi.request"
 local resp = require "wsapi.response"
+local wsapi = wsapi
 
 local xpcall, pcall, error, assert, debug = xpcall, pcall, error, assert, debug
 local ipairs, pairs, require = ipairs, pairs, require
@@ -94,6 +94,7 @@ do
 	
 	initialize_connector = function(connector_name, path, request_processing_function, ...)
 		local connector_module_name = connectors[connector_name]
+		local baseDir = path .. "/web"
 		assert(connector_module_name, "unknown protocol " .. connector_name)
 		local connector = require ("wsapi." .. connector_module_name)
 		if(connector_module_name == 'xavante') then
@@ -101,24 +102,34 @@ do
 			require "xavante.filehandler"
 			require "xavante.cgiluahandler"
 			require "xavante.redirecthandler"
+			
+			require "utilities.debug"
+			
+			local filehandler = xavante.filehandler(baseDir)
+			local webylenehandler = wsapi.xavante.makeHandler(request_processing_function, nil, baseDir)
 			xavante.HTTP {
-				server = { host= "*", port="8080" },
+				server = { host= "*", port="10080" },
 				defaultHost = {
-			        { -- filehandler
-						match = ".",
-						with = xavante.filehandler,
-						params = { baseDir = path .. "/web"}
-					},
-
-			        { -- Lua Pages example
-			           match = ".",
-			           with = wsapi.xavante.makeHandler(custom_sapi_loader, nil, webdir, webdir),
-			        }
+			        rules = {
+						{
+							match = "",
+							with = function(req, res, ...)
+								local fres = filehandler(req, xavante.httpd.make_response(req), ...);
+								if fres.statusline ~= "HTTP/1.1 404 Not Found" and fres.statusline ~= "HTTP/1.1 301 Moved Permanently" then
+									return fres;
+								else
+									return webylenehandler(req, res, ...);
+								end
+							end
+						}
+					}
 				}
 			}
 			return xavante.start
 		else
-			return connector.run
+			return function() 
+				return connector.run(request_processing_function)
+			end
 		end
 	end
 end
