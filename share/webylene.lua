@@ -7,7 +7,7 @@ local wsapi = wsapi
 
 local xpcall, pcall, error, assert, debug = xpcall, pcall, error, assert, debug
 local ipairs, pairs, require = ipairs, pairs, require
-local type, setfenv, loadfile, setmetatable, rawset = type, setfenv, loadfile, setmetatable, rawset
+local table, type, setfenv, loadfile, setmetatable, rawset = table, type, setfenv, loadfile, setmetatable, rawset
 local _G = _G
 
 
@@ -152,6 +152,11 @@ do
 			end
 		end
 	end
+end
+
+function add_object_path(self, path)
+	table.insert(object_paths, path)
+	return self
 end
 
 --- environmental bootstrapping. figure out where we are and whatnot

@@ -8,6 +8,8 @@
 	tbl is a the table that the orm will be wrapped around. it should provide table-level functions
 	
 	row is a row-level table of functions and whatnot
+	
+	This plugin registers objects/models as an expected directory for ORM models.
 ]]
 
 --- EVENTS:
@@ -342,5 +344,8 @@ orm = setmetatable({
 	new=new, 
 	model=function(t)
 		return rawget(models, t)
+	end,
+	init=function(self)
+		webylene:add_object_path("objects" .. webylene.path_separator .. "models")
 	end
 }, { __call = function(tbl, ...) return new(...) end })
