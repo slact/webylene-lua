@@ -10,9 +10,9 @@ Webylene
     /objects      - objects dir. place objects you'll use here
       /core       - core objects. don't mess with them.
       /plugins    - plugin objects. place plugins here.
-      /config     - config dir. place your config files here.
-        /delayed  - place configs that shouldn't be autoloaded here
-      /scripts    - page-specific scripts
+    /config       - config dir. place your config files here.
+      /delayed    - place configs that shouldn't be autoloaded here
+    /scripts      - page-specific scripts
                     put your scripts here. the router will map 
                     urls to scripts. see the router config.
     /templates    - templates (a.k.a. views) should be here
@@ -21,10 +21,10 @@ Webylene
 	  
 
 3. Getting Started
-  for development, invoke the bootstrap with something like 
-  ./bootstrap.lua --path /home/username/my_webylene_project \
-    --protocol fcgi --reload --env dev
-  for details, see ./bootstrap.lua --help
+  
+  For easy development, you can start this Webylene project as a standalone HTTP
+  server. ./bootstrap.lua --server=localhost:8080
+  For details, see ./bootstrap.lua --help
 	
   edit config/app.yaml - set database stuff and env stuff
   write scripts that handle requests to specific urls in scripts/
@@ -36,12 +36,12 @@ Webylene
   wouldn't you like to know? (todo)
   
 5. Who made it?
-  Leo Ponomarev, sometime in 2008-2009.
+  Leo Ponomarev, sometime in 2008-2010.
   
 6. What licence is it distributed under?
   The New BSD licence:
   
-  Copyright (c) 2008-2009, Leo Ponomarev
+  Copyright (c) 2008-2010, Leo Ponomarev
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without 
