@@ -69,6 +69,12 @@ if not arg.path then --framework, find thyself!
 	if not arg.path and debug then 	--last-ditch attempt
 		arg.path = ((debug.getinfo(1, 'S').source):match("^@?(.-)" .. PATH_SEPARATOR .. "bootstrap.lua$"))
 	end
+	if arg.path == "." then
+		local pwd = os.getenv("PWD")
+		if type(pwd)=='string' and #pwd > 0 then
+			arg.path = pwd
+		end
+	end
 	
 	if arg.path then io.stderr:write("path was not specified. guessed it to be '" .. tostring(arg.path) .. "'\n") end
 end
