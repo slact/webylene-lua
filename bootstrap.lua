@@ -93,9 +93,6 @@ local function initialize()
 	for k, v in pairs(arg) do
 		webylene:set_config(k, v)
 	end
-	for i,v in pairs(webylene.config) do
-		print(i,v)
-	end
 	local res, err = pcall(webylene.initialize, webylene, arg.path, arg.environment, PATH_SEPARATOR)
 	if not res then
 		wsapi_request = function() error(err, 0) end
@@ -116,8 +113,9 @@ local run_connector = webylene.initialize_connector(arg.protocol, arg.path, func
 		if not success and rawget(webylene, "logger") then  pcall(webylene.logger.fatal, webylene.logger, status) end
 		if rawget(webylene, "core") then pcall(webylene.core.shutdown) end --to to tell it to shut down
 		if not success then 
-			return "500 Server Error", {['Content-Type']='text/plain'}, coroutine.wrap(function() 
-				coroutine.yield((webylene and webylene.config.show_errors~=false) and ("FATAL ERROR: " .. status) or "A bad error happened. We'll fix it, we promise!") 
+			local msg = (webylene and webylene.config.show_errors~=false) and ("FATAL ERROR: " .. status) or "A bad error happened. We'll fix it, we promise!"
+			return "500 Server Error", {['Content-Type']='text/plain', ['Content-Length']=#msg }, coroutine.wrap(function() 
+				coroutine.yield(msg) 
 			end)
 		end
 	end
