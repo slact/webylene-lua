@@ -51,7 +51,8 @@ for a, v in pairs(opts) do
 			io.stderr:write("invalid server hostname")
 			return 1
 		end
-		arg.protocol = 'http'
+		--oroxy is meaningful, too -- it's httpd serving only webylene (no static stuff)
+		if arg.protocol ~= 'proxy' then arg.protocol = 'http' end
 	elseif a=='V' then
 		arg.verbose = true
 	elseif a=="v" then

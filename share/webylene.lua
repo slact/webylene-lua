@@ -93,6 +93,7 @@ do
 	}
 	
 	initialize_connector = function(connector_name, path, request_processing_function, arg)
+		local logger, io = _G.logger, _G.io
 		local connector_module_name = connectors[connector_name]
 		local baseDir = path .. "/web"
 		assert(connector_module_name, "unknown protocol " .. connector_name)
@@ -114,11 +115,11 @@ do
 			
 			local host, port = arg.host, arg.port or 80
 			if not host then
-				_G.logger:info("HTTP Server hostname not given. assuming localhost.")
+				logger:info("HTTP Server hostname not given. assuming localhost.")
 				host = "localhost"
 			end
 			local msg = ("Xavante HTTP server for Webylene on %s:%d."):format(host, port)
-			_G.logger:info("Starting " .. msg)
+			logger:info("Starting " .. msg)
 			xavante.start_message(function() _G.print("Started " .. msg) end)
 			
 			
@@ -127,7 +128,8 @@ do
 				defaultHost = {
 					rules = { {
 						match = "",
-						with = function(req, res, ...)
+						with = connector_name=='proxy' and webylenehandler or function(req, res, ...)
+							logger:info(connector_name)--serve webylene requests and the static contents of web/
 							local fres = filehandler(req, make_response(req), ...)
 							if fres.statusline ~= "HTTP/1.1 404 Not Found" and fres.statusline ~= "HTTP/1.1 301 Moved Permanently" then
 								return fres;
@@ -140,8 +142,8 @@ do
 			})
 			if not res then 
 				local err = "Error starting Xavante HTTP server: " .. err:match(".*: (.+)")
-				_G.io.stderr:write(err .. "\r\n")
-				_G.logger:error(err)
+				io.stderr:write(err .. "\r\n")
+				logger:error(err)
 				return function() return 1 end
 			else
 				return xavante.start
