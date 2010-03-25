@@ -42,7 +42,17 @@ logger =
 		end
 		local logger, err = logging.file(logpath)
 		if not logger then error("logger: " .. err, 0) end
-		setmetatable(self, {__index=logger})
+		
+		
+		setmetatable(self, cf('verbose') and { __index=function(t, k) 
+			if k=='log' then
+				return function(self, level, msg)
+					io.write(("%s: %s\r\n"):format(level, msg))
+					logger.log(self, level, msg)
+				end
+			end
+			return logger[k]
+		end} or {__index=logger})
 		
 		--log important webylene loading events
 		for i, ev in pairs({"Utilities", "Config", "Core", "Plugins"}) do
