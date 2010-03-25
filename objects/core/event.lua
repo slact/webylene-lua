@@ -6,7 +6,7 @@
  As you might be able to tell already, events in webylene are _not_ bound to 
  partucular objects (like, say, with JS). Instead, all events share the same 
  global namespace. This makes coding, debugging and documenting much simpler.
- Unfortunately, this means that every plugin must fire publish uniquely-named
+ Unfortunately, this means that every plugin must first publish uniquely-named
  events, which doesn't work drastically well when considering any decentralized
  plugin ecosystem. Considerations and solutions to this problem are welcome.
 ]]
