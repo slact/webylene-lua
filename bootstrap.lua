@@ -25,32 +25,35 @@ Options:
                       the hostname and port it listens on. Default value is
                       localhost:80 for http.(Applicable only when protocol=http)
   -l, --log           log file. Default to logs/webylene.log
+  -V, --verbose       Print logs to stdout as well as a file.
   -h, --help          This help message.
   -v, --version       Display version information.
 ]]
-local success, opts = pcall(getopt.get_opts, {...}, "p:P:e:l::hs:v", {
-	path='p', protocol='P', env='e', environment='e', reload=0, help='h', server='s', version='v', log='l'
+local success, opts = pcall(getopt.get_opts, {...}, "p:P:e:l::hs:vV", {
+	path='p', protocol='P', env='e', environment='e', reload=0, help='h', server='s', version='v', verbose='V', log='l'
 })
+local arg = {}
 if not success then io.stderr:write(opts) return 1 end
 for a, v in pairs(opts) do
 	if a=="P" then --this is the protocol we will use
-		protocol = v
+		arg.protocol = v
 	elseif a=="p" then --webylene root! woot!
-		path = v
+		arg.path = v
 	elseif a=="reload" then
-		reload = true
+		arg.reload = true
 	elseif a=='l' then
-		log_file = v
+		arg.log_file = v
 	elseif a=="e" then
-		environment=v
+		arg.environment = v
 	elseif a=="s" then
-		host, port = v:match("^([^:]+):?(%d*)$")
-		print("host:" .. tostring(host), tostring(port))
-		if not host then
+		arg.host, arg.port = v:match("^([^:]+):?(%d*)$")
+		if not arg.host then
 			io.stderr:write("invalid server hostname")
 			return 1
 		end
-		protocol = 'http'
+		arg.protocol = 'http'
+	elseif a=='V' then
+		arg.verbose = true
 	elseif a=="v" then
 		print("webylene " .. version)
 		return 0
@@ -59,20 +62,21 @@ for a, v in pairs(opts) do
 		return 0
 	end
 end
-if not protocol then io.stderr:write("You must specify a protocol. check -h or --help for help.\n") return 1 end
-if not path then --framework, find thyself!
+if not arg.protocol then io.stderr:write("You must specify a protocol. check -h or --help for help.\n") return 1 end
+if not arg.path then --framework, find thyself!
 	--extract path from command invocation
-	path = string.match(arg[1] or "", "^@?(.-)" .. PATH_SEPARATOR .. "bootstrap.lua$") or string.match(arg[0] or "", "^@?(.-)" .. PATH_SEPARATOR .. "bootstrap.lua$") --getting desperate
-	if not path and debug then 	--last-ditch attempt
-		path = ((debug.getinfo(1, 'S').source):match("^@?(.-)" .. PATH_SEPARATOR .. "bootstrap.lua$"))
+	arg.path = string.match(arg[1] or "", "^@?(.-)" .. PATH_SEPARATOR .. "bootstrap.lua$") or string.match(arg[0] or "", "^@?(.-)" .. PATH_SEPARATOR .. "bootstrap.lua$") --getting desperate
+	if not arg.path and debug then 	--last-ditch attempt
+		arg.path = ((debug.getinfo(1, 'S').source):match("^@?(.-)" .. PATH_SEPARATOR .. "bootstrap.lua$"))
 	end
-	if path then io.stderr:write("path was not specified. guessed it to be '" .. tostring(path) .. "'\n") end
+	
+	if arg.path then io.stderr:write("path was not specified. guessed it to be '" .. tostring(arg.path) .. "'\n") end
 end
-if not path then io.stderr:write("couldn't find webylene project path. try -h for help.\n") return 1 end
+if not arg.path then io.stderr:write("couldn't find webylene project path. try -h for help.\n") return 1 end
 
 --let local requires work
-package.path =	   path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?.lua;" 
-				.. path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?" .. PATH_SEPARATOR .. "init.lua;" 
+package.path =	   arg.path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?.lua;" 
+				.. arg.path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?" .. PATH_SEPARATOR .. "init.lua;" 
 				.. package.path
 
 local wsapi_request
@@ -80,8 +84,13 @@ local function initialize()
 	package.loaded.webylene, webylene = nil, nil;
 	require "webylene"
 	setmetatable(_G, { __index = webylene }) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
-	webylene:set_config("log_file", log_file)
-	local res, err = pcall(webylene.initialize, webylene, path, environment, PATH_SEPARATOR)
+	for k, v in pairs(arg) do
+		webylene:set_config(k, v)
+	end
+	for i,v in pairs(webylene.config) do
+		print(i,v)
+	end
+	local res, err = pcall(webylene.initialize, webylene, arg.path, arg.environment, PATH_SEPARATOR)
 	if not res then
 		wsapi_request = function() error(err, 0) end
 	else
@@ -94,7 +103,7 @@ local function wsapi_request_recovery_pretender(self, ...)
 end
 initialize()
 
-webylene.initialize_connector(protocol, path, function(env)
+local run_connector = webylene.initialize_connector(arg.protocol, arg.path, function(env)
 	local success, status, headers, iterator = pcall(wsapi_request, webylene, env)
 	if not success or reload then -- oh shit, bad error. let the parent environment handle it.
 		wsapi_request = wsapi_request_recovery_pretender
@@ -107,4 +116,6 @@ webylene.initialize_connector(protocol, path, function(env)
 		end
 	end
 	return status, headers, iterator
-end, {host=host, port=port})() 
+end, {host=arg.host, port=arg.port})
+
+return run_connector()
