@@ -3,7 +3,7 @@
 pcall( require, "luarocks.loader")
 
 local PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/posixy things, "\" for windowsy systems
-local protocol, path, reload, environment, log_file
+local protocol, path, reload, environment, log_file, serverstring, host, port
 local version = "0.dev"
 --parse command-line parameters
 local getopt = require "alt_getopt"
@@ -14,19 +14,22 @@ Options:
   -p, --path=STR      Path to webylene project. Required.
   -P, --protocol=STR
                       Protocol used by webylene to talk to server.
-					  Can be any of: cgi, fcgi, scgi, proxy.
+					  Can be any of: cgi, fcgi, http.
   -e, --env, --environment=STR
                       The environment webylene should expect to be in.
       --reload        Reinitialize webylene on every request.
                       Useful for development. This does not reload modules and
                       does _not_ reset the lua environment. Applicable only 
-                      when a persistent protocol is used (fcgi, proxy, scgi).
+                      when a persistent protocol is used (fcgi, http, scgi).
+  -s, --server=*:80   If webylene is being started as a standalone server, sets
+                      the hostname and port it listens on. Default value is
+                      localhost:80 for http.(Applicable only when protocol=http)
   -l, --log           log file. Default to logs/webylene.log
   -h, --help          This help message.
   -v, --version       Display version information.
 ]]
-local success, opts = pcall(getopt.get_opts, {...}, "p:P:e:l::hv", {
-	path='p', protocol='P', env='e', environment='e', reload=0, help='h', version='v', log='l'
+local success, opts = pcall(getopt.get_opts, {...}, "p:P:e:l::hs:v", {
+	path='p', protocol='P', env='e', environment='e', reload=0, help='h', server='s', version='v', log='l'
 })
 if not success then io.stderr:write(opts) return 1 end
 for a, v in pairs(opts) do
@@ -40,6 +43,14 @@ for a, v in pairs(opts) do
 		log_file = v
 	elseif a=="e" then
 		environment=v
+	elseif a=="s" then
+		host, port = v:match("^([^:]+):?(%d*)$")
+		print("host:" .. tostring(host), tostring(port))
+		if not host then
+			io.stderr:write("invalid server hostname")
+			return 1
+		end
+		protocol = 'http'
 	elseif a=="v" then
 		print("webylene " .. version)
 		return 0
@@ -68,7 +79,7 @@ local wsapi_request
 local function initialize()
 	package.loaded.webylene, webylene = nil, nil;
 	require "webylene"
-	setmetatable(_G, {__index = webylene}) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
+	setmetatable(_G, { __index = webylene }) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
 	webylene:set_config("log_file", log_file)
 	local res, err = pcall(webylene.initialize, webylene, path, environment, PATH_SEPARATOR)
 	if not res then
@@ -96,4 +107,4 @@ webylene.initialize_connector(protocol, path, function(env)
 		end
 	end
 	return status, headers, iterator
-end)() 
+end, {host=host, port=port})() 

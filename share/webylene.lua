@@ -92,12 +92,15 @@ do
 		proxy = 'xavante'
 	}
 	
-	initialize_connector = function(connector_name, path, request_processing_function, ...)
+	initialize_connector = function(connector_name, path, request_processing_function, arg)
 		local connector_module_name = connectors[connector_name]
 		local baseDir = path .. "/web"
 		assert(connector_module_name, "unknown protocol " .. connector_name)
 		local connector = require ("wsapi." .. connector_module_name)
 		if(connector_module_name == 'xavante') then
+		
+			--Hello httpd magic.
+			
 			local xavante = require "xavante"
 			require "xavante.filehandler"
 			require "xavante.cgiluahandler"
@@ -107,25 +110,42 @@ do
 			
 			local filehandler = xavante.filehandler(baseDir)
 			local webylenehandler = wsapi.xavante.makeHandler(request_processing_function, nil, baseDir)
-			xavante.HTTP {
-				server = { host= "*", port="10080" },
+			local make_response = xavante.httpd.make_response
+			
+			local host, port = arg.host, arg.port or 80
+			if not host then
+				_G.logger:info("HTTP Server hostname not given. assuming localhost.")
+				host = "localhost"
+			end
+			local msg = ("Xavante HTTP server for Webylene on %s:%d."):format(host, port)
+			_G.logger:info("Starting " .. msg)
+			xavante.start_message(function() _G.print("Started " .. msg) end)
+			
+			
+			local res, err = pcall(xavante.HTTP, {
+				server = { host= host, port=port },
 				defaultHost = {
-			        rules = {
-						{
-							match = "",
-							with = function(req, res, ...)
-								local fres = filehandler(req, xavante.httpd.make_response(req), ...);
-								if fres.statusline ~= "HTTP/1.1 404 Not Found" and fres.statusline ~= "HTTP/1.1 301 Moved Permanently" then
-									return fres;
-								else
-									return webylenehandler(req, res, ...);
-								end
+					rules = { {
+						match = "",
+						with = function(req, res, ...)
+							local fres = filehandler(req, make_response(req), ...)
+							if fres.statusline ~= "HTTP/1.1 404 Not Found" and fres.statusline ~= "HTTP/1.1 301 Moved Permanently" then
+								return fres;
+							else
+								return webylenehandler(req, res, ...)
 							end
-						}
-					}
+						end
+					} }
 				}
-			}
-			return xavante.start
+			})
+			if not res then 
+				local err = "Error starting Xavante HTTP server: " .. err:match(".*: (.+)")
+				_G.io.stderr:write(err .. "\r\n")
+				_G.logger:error(err)
+				return function() return 1 end
+			else
+				return xavante.start
+			end
 		else
 			return function() 
 				return connector.run(request_processing_function)
