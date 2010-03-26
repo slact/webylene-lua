@@ -10,7 +10,6 @@ database:
   username: dummyuser
   password: dummypassword
   db: webylene
-
   
 session:
   enabled: true
@@ -30,7 +29,7 @@ user:
   table: user
   username_column: username
   password_column: password
-  
+
 settings:
   #retrieve settings from database. expects a table with name, type, value, and description columns
   #settings are cached in the session, if available.

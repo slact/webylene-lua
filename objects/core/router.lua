@@ -53,12 +53,12 @@ router = {
 		end)
 		
 		--route when it's time to do so
+		local function get_request_env(var)
+			local res = request.env[var]
+			return #res~=0 and res or nil
+		end
 		event:addListener("request", function()
-			local uri = request.SCRIPT_URI
-			if not uri or #uri==0 then
-				uri = request.env.REQUEST_URI
-			end
-			return self:route(uri)
+			return self:route(get_request_env('SCRIPT_URI') or get_request_env('PATH_INFO') or get_request_env('REQUEST_URI'))
 		end)
 	end,
 
