@@ -4,7 +4,7 @@ pcall( require, "luarocks.loader")
 
 local PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/posixy things, "\" for windowsy systems
 local protocol, path, reload, environment, log_file, serverstring, host, port
-local version = "0.dev"
+local version = "0.93"
 --parse command-line parameters
 local getopt = require "alt_getopt"
 local helpstr = [[webylene bootstrap.
