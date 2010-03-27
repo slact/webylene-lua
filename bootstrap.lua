@@ -96,6 +96,9 @@ local function initialize()
 	end
 	local res, err = pcall(webylene.initialize, webylene, arg.path, arg.environment, PATH_SEPARATOR)
 	if not res then
+		if not wsapi_request then --first run -- first initialization
+			io.stderr:write(err .. "\r\n")
+		end
 		wsapi_request = function() error(err, 0) end
 	else
 		wsapi_request = webylene.wsapi_request
