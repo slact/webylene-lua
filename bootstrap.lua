@@ -77,7 +77,7 @@ if not arg.path then --framework, find thyself!
 		end
 	end
 	
-	if arg.path then io.stderr:write("path was not specified. guessed it to be '" .. tostring(arg.path) .. "'\n") end
+	if arg.path then io.stderr:write("Application path not specified. Guessed it to be '" .. tostring(arg.path) .. "'\n") end
 end
 if not arg.path then io.stderr:write("couldn't find webylene project path. try -h for help.\n") return 1 end
 
