@@ -28,6 +28,7 @@
 ]]
 
 require "lfs"
+require "utilities.debug"
 local webylene = webylene
 --- webylene core. this does all sorts of bootstrappity things.
 local load_config, load_objects  --closured for fun and profit. mostly fun.

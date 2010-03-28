@@ -90,18 +90,22 @@ local wsapi_request
 local function initialize()
 	package.loaded.webylene, webylene = nil, nil;
 	require "webylene"
-	setmetatable(_G, { __index = webylene }) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
+	local w = webylene.new()
+	setmetatable(_G, { __index = w }) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
 	for k, v in pairs(arg) do
-		webylene:set_config(k, v)
+		w:set_config(k, v)
 	end
-	local res, err = pcall(webylene.initialize, webylene, arg.path, arg.environment, PATH_SEPARATOR)
+	
+	_G.webylene = w
+	local res, err = pcall(w.initialize, w, arg.path, arg.environment, PATH_SEPARATOR)
+	
 	if not res then
 		if not wsapi_request then --first run -- first initialization
 			io.stderr:write(err .. "\r\n")
 		end
 		wsapi_request = function() error(err, 0) end
 	else
-		wsapi_request = webylene.wsapi_request
+		wsapi_request = w.wsapi_request
 	end
 end
 local function wsapi_request_recovery_pretender(self, ...)
@@ -110,7 +114,7 @@ local function wsapi_request_recovery_pretender(self, ...)
 end
 initialize()
 
-local run_connector = webylene.initialize_connector(arg.protocol, arg.path, function(env)
+local run_connector = webylene:initialize_connector(arg.protocol, function(env)
 	local success, status, headers, iterator = pcall(wsapi_request, webylene, env)
 	if not success or reload then -- oh shit, bad error. let the parent environment handle it.
 		wsapi_request = wsapi_request_recovery_pretender
