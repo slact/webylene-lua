@@ -14,5 +14,11 @@ _G.write = write
 
 --- print replacement. expects all paramenters to already be concatenable as strings
 _G.print = function(...)
-	write(table.concat({...},"\t") .. "\n")
+	local arg = {...}
+	for i, v in pairs(arg) do
+		if type(v)~='string' then
+			arg[i]=tostring(v)
+		end
+	end
+	write(table.concat(arg,"\t") .. "\n")
 end 
