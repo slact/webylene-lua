@@ -37,7 +37,11 @@ core = {
 	initialize = function()
 		local ev = webylene.event
 		local logger = webylene.logger
-		logger:info("started webylene " .. ((type(webylene.env)=="string") and ("in " .. webylene.env .. " environment") or "without an environment parameter") ..  " with path " .. webylene.path)
+		print(debug.dump(webylene.config))
+		logger:info("Starting ".. (cf('name') or cf('appname') or "webylene application") .. 
+		  (cf('environment')
+		    and (" in " .. cf('environment') .. " environment") 
+		    or " without an environment parameter") ..  " with path " .. cf('path'))
 		
 		ev:start("initialize")	
 			ev:start("loadUtilities")
@@ -78,6 +82,7 @@ core = {
 --- load config files of type <extension> from path <relative_path>. if <relative_path> is a folder, load all files with extension <extension>
 --remember, this is local.
 load_config = function(relative_path, extension)
+	local sep = cf('path_separator')
 	extension = extension or "yaml"
 	local loadFile = {
 		yaml = function(path)
@@ -87,10 +92,11 @@ load_config = function(relative_path, extension)
 			local success, conf = pcall(yaml.load, f:read("*all"))
 			f:close()
 			if not success then 
-				local err = "Error loading yaml file " .. path ..":\n" .. conf
+				local err = ("Error loading yaml file <%s>: %s"):format(path, conf)
 				logger:error(err)
 				error(err, 0)
 			end
+			--address environment-specific settings
 			if conf.env and conf.env[webylene.env] then	
 				table.mergeRecursivelyWith(conf, conf.env[webylene.env])
 				conf.env = nil
@@ -103,10 +109,10 @@ load_config = function(relative_path, extension)
 	}
 	
 	assert(loadFile[extension], "Config loader doesn't know what to do with the  \"." .. extension .. "\" extension.")
-	local absolute_path = webylene.path .. webylene.path_separator .. relative_path
+	local absolute_path = cf('path') .. sep .. relative_path
 	for file in lfs.dir(absolute_path) do																				-- is this part right?...
-		if file ~= "." and file ~= ".."  and lfs.attributes(absolute_path .. webylene.path_separator .. file, "mode")=="file" and file:sub(-#extension) == extension then
-			loadFile[extension](absolute_path .. webylene.path_separator .. file)
+		if file ~= "." and file ~= ".."  and lfs.attributes(absolute_path .. sep .. file, "mode")=="file" and file:sub(-#extension) == extension then
+			loadFile[extension](absolute_path .. sep .. file)
 		end
 	end
 	return true
@@ -115,12 +121,12 @@ end
 --- load all objects in lua files in relativePath
 --remember, this is local.
 load_objects = function(relativePath)
-	local absolutePath = webylene.path .. webylene.path_separator .. relativePath
+	local absolutePath = cf('path') .. cf('path_separator') .. relativePath
 	local webylene = webylene -- so that we don't have to go metatable-hopping all the time
 	local extension = "lua"
 	local extension_cutoff = #extension+2 --the dot +1
 	for file in lfs.dir(absolutePath) do																				-- is this part right?...
-		if file ~= "." and file ~= ".." and lfs.attributes(absolutePath .. webylene.path_separator .. file, "mode")=="file" and file:sub(-#extension) == extension then
+		if file ~= "." and file ~= ".." and lfs.attributes(absolutePath .. cf('path_separator') .. file, "mode")=="file" and file:sub(-#extension) == extension then
 			local obj = webylene[file:sub(1, -extension_cutoff)]
 		end
 	end

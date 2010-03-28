@@ -4,6 +4,7 @@
 local req = require "wsapi.request"
 local resp = require "wsapi.response"
 local wsapi = wsapi
+require "utilities.debug"
 
 local xpcall, pcall, error, assert, debug, io, rawget, rawset = xpcall, pcall, error, assert, debug, io, rawget, rawset
 local ipairs, pairs, require = ipairs, pairs, require
@@ -96,15 +97,21 @@ function new(parent)
 		config = config,
 		
 		--- environmental bootstrapping. figure out where we are and whatnot
-		initialize = function(self, webylene_path, environment, slash)
-			--assert(environment, "Webylene environment is a must!") --environment is really quite optional
-			self.path, self.path_separator, self.env = webylene_path, slash or "/", environment
+		initialize = function(self, arg)
 			
-			import_path =  self.path .. self.path_separator .. "%s" .. self.path_separator .. "%s.lua"  
+			
+			--assert(environment, "Webylene environment is a must!") --environment is really quite optional
+			arg.path_separator = arg.path_separator or '/'
+			
+			for k, v in pairs(arg) do 
+				self:set_config(k,v)
+			end
+
+			import_path =  config.path .. config.path_separator .. "%s" .. config.path_separator .. "%s.lua"  
 			object_paths = { --paths to look for objects in, in order of preference
-				"objects" .. self.path_separator .. "core", 
+				"objects" .. config.path_separator .. "core", 
 				"objects",
-				"objects" .. self.path_separator .. "plugins"
+				"objects" .. config.path_separator .. "plugins"
 			}
 			
 			local res, err = xpcall(function()
@@ -162,7 +169,7 @@ function new(parent)
 		initialize_connector = function(self, connector_name, request_processing_function, arg)
 			local logger = self.logger
 			local connector_module_name = connectors[connector_name]
-			local baseDir = self.path .. self.path_separator .. "web"
+			local baseDir = self.cf('path') .. self.cf('path_separator') .. "web"
 			assert(connector_module_name, "unknown protocol: " .. connector_name)
 			local connector = require ("wsapi." .. connector_module_name)
 			if(connector_module_name == 'xavante') then

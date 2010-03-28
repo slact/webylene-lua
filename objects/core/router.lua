@@ -40,10 +40,11 @@ local routes = {}
 
 router = {
 	init = function(self)
+		local sep = cf('path_separator')
 		--set our configgy stuff
 		event:addListener("initialize",function()
 			self.settings=assert(cf("router"), "No router config found. bailing.")
-			script_printf_path = webylene.path .. webylene.path_separator .. self.settings.destinations.location .. webylene.path_separator .. "%s" .. self.settings.destinations.extension
+			script_printf_path = cf('path') .. sep .. self.settings.destinations.location .. sep .. "%s" .. self.settings.destinations.extension
 		
 			assert(self.settings.routes, "Routes not found")
 			--initialize routes

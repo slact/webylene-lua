@@ -37,8 +37,8 @@ logger =
 {
 	init = function(self)
 		local logpath = cf("log_file") or "logs/webylene.log"
-		if not logpath:match("^" .. webylene.path_separator) then
-			logpath = webylene.path .. webylene.path_separator .. logpath
+		if not logpath:match("^" .. cf('path_separator')) then
+			logpath = cf('path') .. cf('path_separator') .. logpath
 		end
 		local logger, err = logging.file(logpath)
 		if not logger then error("logger: " .. err, 0) end

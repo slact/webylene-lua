@@ -63,7 +63,8 @@ for a, v in pairs(opts) do
 		return 0
 	end
 end
-if not arg.protocol then io.stderr:write("You must specify a protocol. check -h or --help for help.\n") return 1 end
+if not arg.protocol then io.stderr:write("You must specify a protocol. check -h or --help for help.\r\n") return 1 end
+arg.path_separator = PATH_SEPARATOR
 if not arg.path then --framework, find thyself!
 	--extract path from command invocation
 	arg.path = string.match(arg[1] or "", "^@?(.-)" .. PATH_SEPARATOR .. "bootstrap.lua$") or string.match(arg[0] or "", "^@?(.-)" .. PATH_SEPARATOR .. "bootstrap.lua$") --getting desperate
@@ -92,12 +93,9 @@ local function initialize()
 	require "webylene"
 	local w = webylene.new()
 	setmetatable(_G, { __index = w }) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
-	for k, v in pairs(arg) do
-		w:set_config(k, v)
-	end
 	
 	_G.webylene = w
-	local res, err = pcall(w.initialize, w, arg.path, arg.environment, PATH_SEPARATOR)
+	local res, err = pcall(w.initialize, w, arg)
 	
 	if not res then
 		if not wsapi_request then --first run -- first initialization

@@ -70,8 +70,8 @@ template = {
 
 --recursive traversal of templates/ for, um, discovering templates... so that they needn't be put into the templates config if they're simple.
 discover_templates = function(self, extension)
-	local slash = webylene.path_separator
-	local templates_prefix = webylene.path .. slash .. "templates" .. slash
+	local slash = cf('path_separator')
+	local templates_prefix = cf('path') .. slash .. "templates" .. slash
 	local extension = extension or ".lp"
 	local known_template_files = {}
 	if type(self.settings.templates) == "table" then
