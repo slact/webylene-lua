@@ -15,8 +15,9 @@ _G.write = write
 --- print replacement. expects all paramenters to already be concatenable as strings
 _G.print = function(...)
 	local arg = {...}
-	for i, v in pairs(arg) do
-		if type(v)~='string' then
+	for i=1, #arg do
+		local v = arg[i]
+		if type(v)~='string' then 
 			arg[i]=tostring(v)
 		end
 	end
