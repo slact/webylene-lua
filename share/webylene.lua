@@ -4,7 +4,6 @@
 local req = require "wsapi.request"
 local resp = require "wsapi.response"
 local wsapi = wsapi
-require "utilities.debug"
 
 local xpcall, pcall, error, assert, debug, io, rawget, rawset = xpcall, pcall, error, assert, debug, io, rawget, rawset
 local ipairs, pairs, require = ipairs, pairs, require
@@ -17,10 +16,10 @@ local print = print
 -- @param file_chunk lua chunk, at least defining a table named object_name
 -- @param object_name expected name of the imported object/table
 -- upon successful chunk loading, [object_name]:init() is called.
-local importChunk = function(self, file_chunk, object_name)
+local importChunk = function(self, file_chunk, object_name, env)
 	if file_chunk == nil then return end 
 	
-	local relatively_safe_env = setmetatable({}, {__index=_G})
+	local relatively_safe_env = setmetatable({}, {__index=env or _G})
 	setfenv(file_chunk, relatively_safe_env)() -- run the file in a (relatively) safe environment
 	local result = rawget(relatively_safe_env, object_name)
 	if result ~= nil then --there it is!
@@ -40,9 +39,14 @@ module(...)
 
 local newrequest, newresponse = req.new, resp.new
 
-function new(parent)
-	local import_path, object_paths = "", {}
-	local config, import_path = {}, ''
+function new(runtime_environment, parent)
+	setfenv(1, env or _G)
+	local config = {
+		paths = {
+			import={}
+		}
+	}
+	
 	local core_request, erry = nil, function(err)
 		if not config or (type(config)=="table" and config.show_backtrace~=false) then
 			return err ..  "\r\n" .. debug.traceback("", 2)
@@ -53,7 +57,8 @@ function new(parent)
 	
 	local disregard = {} --we don't want webylene to be loaded more than once. also, this table is used to keep track of stuff that's not part of webylene. (avoid infinite lookup loops)
 	--- (too) magic webylene importer. called whenever webylene.foo is nil, tries to load foo.lua from the folders listed below. 
-	local import = function(self, object_name)
+	local import_pathf
+	local import = function(self, object_name, look_here)
 		local exists = rawget(self, object_name)
 		if exists ~= nil then
 			return exists 
@@ -62,8 +67,8 @@ function new(parent)
 		end
 		local result
 		
-		for i,dir in pairs(object_paths) do
-			local mypath = import_path:format(dir, object_name)
+		for i,dir in pairs(look_here and {look_here} or self.cf('paths', 'import')) do
+			local mypath = import_pathf:format(dir, object_name)
 			-- this is wasteful, but I don't see a better way to differentiate between 
 			-- file-not-found errors and parsing errors while having lua think it's 
 			-- processing a file and not some string.
@@ -73,13 +78,14 @@ function new(parent)
 				f:close()
 				local chunk, err = loadfile(mypath)
 				if not chunk then error(err, 0) end
-				result = importChunk(self, chunk, object_name)
+				result = importChunk(self, chunk, object_name, runtime_environment)
 				if result ~= nil then
+					logger:debug(("Imported %s from %s"):format(object_name, mypath))
 					return result
 				end
 			end
 		end		
-		-- we tried, but failed. make a note of it, and move on... :'(  
+		-- we tried, but failed. make a note of it, and move on... :'( 
 		disregard[object_name] = true
 		return nil
 	end
@@ -93,12 +99,21 @@ function new(parent)
 		proxy = 'xavante'
 	}
 	
+	if(parent) then
+		config.paths.core=parent.cf("paths","core")
+		setmetatable(config, {__index=parent.config})
+		local imports = self.cf("paths", "import")
+		for i, v in pairs(parent.cf("paths","import")) do
+			table.insert(imports, v)
+		end
+		
+	end
+	
 	return setmetatable({
 		config = config,
 		
 		--- environmental bootstrapping. figure out where we are and whatnot
 		initialize = function(self, arg)
-			
 			
 			--assert(environment, "Webylene environment is a must!") --environment is really quite optional
 			arg.path_separator = arg.path_separator or '/'
@@ -107,16 +122,15 @@ function new(parent)
 				self:set_config(k,v)
 			end
 
-			import_path =  config.path .. config.path_separator .. "%s" .. config.path_separator .. "%s.lua"  
-			object_paths = { --paths to look for objects in, in order of preference
-				"objects" .. config.path_separator .. "core", 
-				"objects",
-				"objects" .. config.path_separator .. "plugins"
-			}
+			import_pathf = "%s" .. config.path_separator .. "%s.lua"  
 			
+			--paths to look for objects in, in order of preference
+			for i, relpath in pairs{"objects"} do
+				self:add_object_import_path(relpath, i)
+			end
 			local res, err = xpcall(function()
-				import(self, "core")
-				core_request=self.core.request
+				import(self, "core", config.paths.core or (config.path .. config.path_separator .. "objects" .. config.path_separator .. "core"))
+				core_request = self.core.request
 				self.core:initialize()
 			end,
 			function(err)
@@ -159,8 +173,12 @@ function new(parent)
 			end
 		end,
 		
-		add_object_path = function(self, path)
-			table.insert(object_paths, path)
+		get_object_import_paths = function(self)
+			return self.cf("paths", "import")
+		end,
+		
+		add_object_import_path = function(self, path, n)
+			table.insert(self.cf("paths", "import"), n or #table+1, config.path .. config.path_separator .. path)
 			return self
 		end,
 		
@@ -179,8 +197,6 @@ function new(parent)
 				require "xavante.filehandler"
 				require "xavante.cgiluahandler"
 				require "xavante.redirecthandler"
-				
-				require "utilities.debug"
 				
 				local filehandler = xavante.filehandler(baseDir)
 				local webylenehandler = wsapi.xavante.makeHandler(request_processing_function, nil, baseDir)
@@ -228,10 +244,4 @@ function new(parent)
 		end
 		
 	}, {__index=import})
-	
-	
 end
-
-
-
-

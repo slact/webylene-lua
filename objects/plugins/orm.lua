@@ -346,6 +346,6 @@ orm = setmetatable({
 		return rawget(models, t)
 	end,
 	init=function(self)
-		webylene:add_object_path("objects" .. cf('path_separator') .. "models")
+		webylene:add_object_import_path("objects" .. cf('path_separator') .. "models")
 	end
 }, { __call = function(tbl, ...) return new(...) end })

@@ -1,0 +1,1 @@
+scripts associated with resources (or pages, however you want to view it), should go here.

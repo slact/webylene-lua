@@ -1,0 +1,6 @@
+objects
+
+Place reusable objects here. 
+An object is nothing but a table in the webylene namespace (i.e. a fooObj object would be loaded into webylene.fooObj
+Objects placed in the /objects directory are loaded on-demand.
+A file defining class fOo must be called fOo.lua, case-sensitivity and all.

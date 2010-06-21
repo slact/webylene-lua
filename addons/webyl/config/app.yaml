@@ -1,0 +1,36 @@
+---
+#debugging settings
+show_errors: true
+
+database: 
+  enabled: false
+  log_all_queries: false
+  type: mysql
+  host: localhost
+  username: dummyuser
+  password: dummypassword
+  db: webylene
+  
+session:
+  enabled: true
+  storage: database
+  name: session
+  
+  #if engine:database, what table do we use?
+  table: session
+  #if engine:filesystem, what path do we use?
+  path: /tmp
+  #expiration time in seconds
+  expires: 3600
+  #chance that the session garbage collector will run on a given request
+  gc_chance: 0.05
+  
+user:
+  table: user
+  username_column: username
+  password_column: password
+
+settings:
+  #retrieve settings from database. expects a table with name, type, value, and description columns
+  #settings are cached in the session, if available.
+  table: settings

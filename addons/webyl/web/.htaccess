@@ -1,0 +1,15 @@
+Options +FollowSymLinks +ExecCGI
+
+AddHandler fastcgi-script fcg fcgi fpl
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  #if file doesn't exist, talk to the controller 
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^(.*)$ /index.lua [QSA,L]
+</IfModule>
+
+Action lua-fcgi /cgi-bin/lua.fcgi
+Action lua-cgi /cgi-bin/lua.cgi
+AddHandler lua-cgi .lua

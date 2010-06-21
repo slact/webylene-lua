@@ -28,16 +28,16 @@
 ]]
 
 require "lfs"
-require "utilities.debug"
+
 local webylene = webylene
 --- webylene core. this does all sorts of bootstrappity things.
 local load_config, load_objects  --closured for fun and profit. mostly fun.
 core = {
 	--- initialize webylene
-	initialize = function()
+	initialize = function(self)
 		local ev = webylene.event
 		local logger = webylene.logger
-		print(debug.dump(webylene.config))
+		print("let's begin.")
 		logger:info("Starting ".. (cf('name') or cf('appname') or "webylene application") .. 
 		  (cf('environment')
 		    and (" in " .. cf('environment') .. " environment") 
@@ -56,12 +56,14 @@ core = {
 		
 			--load core objects
 			ev:start("loadCore")
-				load_objects("objects/core")
+				load_objects(cf('paths', 'core'))
 			ev:finish("loadCore")
 			
 			--load plugin objects
 			ev:start("loadPlugins")
-				load_objects("objects/plugins")
+				for i,where_do_i_look in pairs(cf('paths', 'plugins')) do
+					load_objects(where_do_i_look)
+				end
 			ev:finish("loadPlugins")
 		ev:finish("initialize")
 	end,
@@ -120,13 +122,12 @@ end
 	
 --- load all objects in lua files in relativePath
 --remember, this is local.
-load_objects = function(relativePath)
-	local absolutePath = cf('path') .. cf('path_separator') .. relativePath
+load_objects = function(from_where)
 	local webylene = webylene -- so that we don't have to go metatable-hopping all the time
 	local extension = "lua"
 	local extension_cutoff = #extension+2 --the dot +1
-	for file in lfs.dir(absolutePath) do																				-- is this part right?...
-		if file ~= "." and file ~= ".." and lfs.attributes(absolutePath .. cf('path_separator') .. file, "mode")=="file" and file:sub(-#extension) == extension then
+	for file in lfs.dir(from_where) do																				-- is this part right?...
+		if file ~= "." and file ~= ".." and lfs.attributes(from_where .. cf('path_separator') .. file, "mode")=="file" and file:sub(-#extension) == extension then
 			local obj = webylene[file:sub(1, -extension_cutoff)]
 		end
 	end
