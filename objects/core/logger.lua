@@ -32,27 +32,44 @@
 </loadPlugins>
 ]]
 
-require "logging.file"
-logger = 
-{
+local multiplog = {} --all the supported logging destinations
+
+local multiplog_call = function(key)
+	return function(notself, a, b, c)
+		for i=1, #multiplog do
+			local thislog = multiplog[i]
+			thislog[key](thislog, a, b, c)
+		end
+	end
+end
+
+require "logging"
+logger = setmetatable({
 	init = function(self)
 		local logpath = cf("log_file") or "logs/webylene.log"
+		
+		local log_to_console = cf('verbose')
+		
 		if not logpath:match("^" .. webylene.path_separator) then
 			logpath = webylene.path .. webylene.path_separator .. logpath
 		end
-		local logger, err = logging.file(logpath)
-		if not logger then error("logger: " .. err, 0) end
+		require "logging.file"
+		local file_logger, logger_err = logging.file(logpath)
+		if file_logger then
+			table.insert(multiplog, file_logger)
+		else --fallback to console logging
+			log_to_console = true
+		end
 		
+		if log_to_console then
+			require "logging.console"
+			table.insert(multiplog, logging.console())
+		end
 		
-		setmetatable(self, cf('verbose') and { __index=function(t, k) 
-			if k=='log' then
-				return function(self, level, msg)
-					io.write(("%s: %s\r\n"):format(level, msg))
-					logger.log(self, level, msg)
-				end
-			end
-			return logger[k]
-		end} or {__index=logger})
+		if logger_err then
+			self:error("logger: " .. logger_err)
+			self:info("logger: Falling back on logging to console.")
+		end
 		
 		--log important webylene loading events
 		for i, ev in pairs({"Utilities", "Config", "Core", "Plugins"}) do
@@ -70,5 +87,12 @@ logger =
 		event:addStartListener("shutdown", function()
 			self:info("shutting down.")
 		end)
+		
 	end
-}
+	
+}, logging)
+
+--oh my what an upstanding first-class citizen you are.
+for _, key in pairs{ 'log', 'debug', 'info', 'warn', 'error', 'fatal', 'setLevel' } do
+	logger[key]=multiplog_call(key)
+end
