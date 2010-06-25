@@ -1,6 +1,7 @@
 #!/usr/bin/env lua
 --luarocks
 pcall( require, "luarocks.loader")
+package.path = package.path .. ";./share/?.lua"
 
 local PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/posixy things, "\" for windowsy systems
 local protocol, path, reload, environment, log_file, serverstring, host, port

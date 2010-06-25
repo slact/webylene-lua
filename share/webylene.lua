@@ -198,19 +198,20 @@ function new(runtime_environment, parent)
 				require "xavante.cgiluahandler"
 				require "xavante.redirecthandler"
 				
+				local stdout, stderr = io.stdout, io.stderr
+			
 				local filehandler = xavante.filehandler(baseDir)
 				local webylenehandler = wsapi.xavante.makeHandler(request_processing_function, nil, baseDir)
 				local make_response = xavante.httpd.make_response
 				
 				local host, port = arg.host, arg.port or 80
 				if not host then
-					logger:info("HTTP Server hostname not given. assuming localhost.")
+					stderr:write("HTTP Server hostname not given. assuming localhost.\r\n")
 					host = "localhost"
 				end
 				local msg = ("Xavante HTTP server for Webylene on %s:%d."):format(host, port)
-				logger:info("Starting " .. msg)
-				xavante.start_message(function() _G.print("Started " .. msg) end)
 				
+				xavante.start_message(function() stdout:write("Started " .. msg .. "\r\n") end)
 				
 				local res, err = pcall(xavante.HTTP, {
 					server = { host= host, port=port },
@@ -229,9 +230,8 @@ function new(runtime_environment, parent)
 					}
 				})
 				if not res then 
-					local err = "Error starting Xavante HTTP server: " .. err:match(".*: (.+)")
-					io.stderr:write(err .. "\r\n")
-					logger:error(err)
+					local err = ("Error starting Xavante HTTP server on %s:%d: %s"):format(host, port, err:match(".*: (.+)"))
+					stderr:write(err .. "\r\n")
 					return function() return 1 end
 				else
 					return xavante.start
