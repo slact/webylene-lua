@@ -108,9 +108,10 @@ local function wsapi_request_recovery_pretender(self, ...)
 end
 initialize()
 
+local must_reload = arg.reload
 local run_connector = webylene.initialize_connector(arg.protocol, arg.path, function(env)
 	local success, status, headers, iterator = pcall(wsapi_request, webylene, env)
-	if not success or reload then -- oh shit, bad error. let the parent environment handle it.
+	if not success or must_reload then -- oh shit, bad error. let the parent environment handle it.
 		wsapi_request = wsapi_request_recovery_pretender
 		if not success and rawget(webylene, "logger") then  pcall(webylene.logger.fatal, webylene.logger, status) end
 		if rawget(webylene, "core") then pcall(webylene.core.shutdown) end --to to tell it to shut down
