@@ -75,10 +75,12 @@ getopts({
 			return 1
 		end
 		arg.host, arg.port = val:match("^([^:]+):?(%d*)$")
+		print(type(arg.port), arg.port, #arg.port)
 		if not arg.host then
 			io.stderr:write("invalid server hostname")
 			return 1
 		end
+		if #arg.port==0 then arg.port=nil end
 		if arg.protocol ~= 'proxy' then arg.protocol = 'http' end
 	end,
 	[{'h', '?', 'help'}]	= function() print(helpstr) return 0 end,
