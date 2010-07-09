@@ -80,7 +80,7 @@ router = {
 	--- route to the 404 page. this gets its own function because it might be considered a default -- no route, so take Route 404.
 	route404 = function(self)
 		event:fire("route404")
-		return arrive(self, parser.parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
+		return (event:active("arrive") and raw_arrive or arrive)(self, parser.parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
 	end,
 	
 	--if there was an error executing a page script
