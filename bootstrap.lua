@@ -39,7 +39,7 @@ local PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/pos
 local protocol, path, reload, environment, log_file, serverstring, host, port
 local version = "0.93"
 --parse command-line parameters
-local helpstr = [[webylene bootstrap.
+local helpstr = [[webylene $d bootstrap.
 Usage: bootstrap.lua [OPTIONS]
 Example: ./bootstrap.lua --path=/var/www/webylene --protocol=fcgi --env dev
 Options:
@@ -75,7 +75,6 @@ getopts({
 			return 1
 		end
 		arg.host, arg.port = val:match("^([^:]+):?(%d*)$")
-		print(type(arg.port), arg.port, #arg.port)
 		if not arg.host then
 			io.stderr:write("invalid server hostname")
 			return 1
