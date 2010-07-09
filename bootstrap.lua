@@ -39,7 +39,7 @@ local PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/pos
 local protocol, path, reload, environment, log_file, serverstring, host, port
 local version = "0.93"
 --parse command-line parameters
-local helpstr = [[webylene $d bootstrap.
+local helpstr = ([[webylene %s bootstrap.
 Usage: bootstrap.lua [OPTIONS]
 Example: ./bootstrap.lua --path=/var/www/webylene --protocol=fcgi --env dev
 Options:
@@ -60,7 +60,7 @@ Options:
   -V, --verbose       Print logs to stdout as well as a file.
   -h, --help          This help message.
   -v, --version       Display version information.
-]]
+]]):format(version)
 local arg = {}
 local function setarg(name) return function(val) arg[name] = val or true end end
 getopts({
