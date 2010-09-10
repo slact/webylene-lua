@@ -58,7 +58,19 @@ router = {
 			return #res~=0 and res or nil
 		end
 		event:addListener("request", function()
-			return self:route(get_request_env('SCRIPT_URI') or get_request_env('PATH_INFO') or get_request_env('REQUEST_URI'))
+			local script_uri = get_request_env('SCRIPT_URI')
+			if script_uri then
+				return self:route(script_uri)
+			else
+				local path_info, request_uri = get_request_env('PATH_INFO'), get_request_env('REQUEST_URI')
+				if path_info and request_uri then
+					return self:route((#path_info < #request_uri) and request_uri or path_info)
+				elseif path_info or request_uri then
+					return self:route(path_info or request_uri)
+				else
+					return self:route500("Can't do any routing because webylene can't find the request URL.")
+				end
+			end
 		end)
 	end,
 
