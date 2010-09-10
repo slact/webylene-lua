@@ -1,12 +1,29 @@
 local redis = redis
 
-local new = function(keypattern, self, object, autoincr_key)
+--[[
+	new(
+		key,  -- "key_pattern:%s" or key making function
+		model, -- {} table of optional model methods (including new)
+		object, -- {} table of optional object (row) methods (including new, delete, and insert)
+		autoincr_key -- "autoincrement:bar" -- use this key as the autoincrement counter for these objects
+	}
+
+]]
+
+local new = function(key, self, object, autoincr_key)
 	self, object = self or {}, object or {}
 	
-	assert(type(keypattern)=="string", "key pattern must be a string (i.e. 'foobar:%s')")
-	assert(keypattern:format('foo')~=keypattern:format('bar'), "Invalid key pattern string (\""..keypattern.."\") produces same key for different ids.")
-
-	local id = setmetatable({}, {__mode='k'}) --store ids here
+	local keymaker
+	assert(key, "Redisobject Must. Have. Key.")
+	if type(key)=="string" then
+		assert(key:format('foo')~=key:format('bar'), "Invalid key pattern string (\""..key.."\") produces same key for different ids.")
+		keymaker = function(arg)
+			return key:format(arg)
+		end
+	elseif type(key)=="function" then
+		keymaker = key
+	end
+	
 	local function reserveId(self)
 		if autoincr_key then
 			local res, err = redis:increment(autoincr_key)
@@ -15,18 +32,27 @@ local new = function(keypattern, self, object, autoincr_key)
 			return nil, "don't know how to autoincrement ids for key pattern " .. (keypattern or "???")
 		end
 	end
+	
+	local cache = setmetatable({},{__mode='k', __newindex=function(t,k,v)
+		local container = {}
+		rawset(t, k, container)
+		return container
+	end}) --store private stuff here
 
 	local objectmeta = {__index={
-		getId = function(self)
-			return id[self]
-		end,
 		
-		setId = function(self, newId)
-			id[self]=newId
+		setKey = function(self, id)
+			cache[self].key=keymaker(id)
+			cache[self].id=id
+			return self
 		end,
 		
 		getKey = function(self)
-			return keypattern:format(self:getId())
+			return cache[self].key
+		end,
+
+		getId = function(self)
+			return cache[self].id
 		end,
 		
 		delete = function(self)
@@ -68,18 +94,19 @@ local new = function(keypattern, self, object, autoincr_key)
 	
 	local tablemeta = { __index = {
 		new = function(self, id, res)
-			if not res and type(id)=='table' then
-				--only one parameter, the res (and not the id) was given
-				id, res = nil, id
+			if #arg==0 then
+				return nil, "id not given!"
 			end
-			res = res or {}
+			
+			local res = res or {}
 			setmetatable(res, objectmeta)
-			return res
+			return res:setKey(id)
 		end, 
 		
 		find = function(self, id)
-			if not id then return nil, "Nothing to look for" end
-			local res, err = redis:hgetall(keypattern:format(id))
+			local key = keymaker(id)
+			if not key then return nil, "Nothing to look for" end
+			local res, err = redis:hgetall(key)
 			if res then
 				return self:new(id, res)
 			else
@@ -93,14 +120,15 @@ local new = function(keypattern, self, object, autoincr_key)
 			return self
 		end
 	}}
-
+	
+	setmetatable(self, tablemeta)
 	--support for custom-ish creation and deletion
-	local custom = {[self]={'new'}, [object]={'update', 'delete'}}
+	local custom = {[tablemeta]={'new'}, [objectmeta]={'insert', 'update', 'delete'}}
 	for tbl, customizeables in pairs(custom) do
 		for i, v in ipairs(customizeables) do
 			if type(tbl[v])=="function" then
-				local normal, additional = getmetatable(tbl).__index[v], tbl[v]
-				tbl[v] = function(...)
+				local normal, additional = tbl.__index[v], tbl[v]
+				tbl.__index[v] = function(...)
 					local res, err = normal(...)
 					if res then
 						return additional(...)
@@ -112,7 +140,7 @@ local new = function(keypattern, self, object, autoincr_key)
 		end
 	end
 
-	return setmetatable(self, tablemeta)
+	return self
 end
 
 redisobject = setmetatable({
