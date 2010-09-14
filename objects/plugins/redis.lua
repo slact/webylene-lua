@@ -55,16 +55,31 @@ redis = {
 				local custom_commands = {
 					hset = false,
 					hmset = {
-						request = function(client, command, hash)
-							local arg = {}
-							for k, v in pairs(hash) do
-								tinsert(arg, k)
-								tinsert(arg, v)
+						request = function(client, command, ...)
+							local args, arguments = {...}, {}
+							table.insert(arguments, args[1])
+							for k,v in pairs(args[2]) do
+								table.insert(arguments, k)
+								table.insert(arguments, v)
 							end
-							return redis_instance.requests.inline(client, command, arg)
-						end 
+							redis.requests.multibulk(client, command, unpack(arguments))
+						end
 					},
 					hget = false,
+					hmget = {
+						request = function(client, command, ...)
+							local args, arguments, tinsert = {...}, {}, table.insert
+							if (#args == 2 and type(args[2]) == 'table') then
+								tinsert(arguments, args[1])
+								for _,v in ipairs(args[2]) do
+									tinsert(arguments, v)
+								end
+								redis.requests.multibulk(client, command, unpack(arguments))
+							else
+								redis.requests.multibulk(client, command, ...)
+							end
+						end
+					},
 					hgetall = {
 						response = function(reply, command, ...)
 							local new_reply = { }

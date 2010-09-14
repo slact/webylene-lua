@@ -33,17 +33,15 @@ local new = function(key, self, object, autoincr_key)
 		end
 	end
 	
-	local cache = setmetatable({},{__mode='k', __newindex=function(t,k,v)
-		local container = {}
-		rawset(t, k, container)
-		return container
+	local emptytable = {}
+	local cache = setmetatable({},{__mode='k', __index=function(t,k,v)
+		return emptytable
 	end}) --store private stuff here
 
 	local objectmeta = {__index={
 		
 		setKey = function(self, id)
-			cache[self].key=keymaker(id)
-			cache[self].id=id
+			cache[self] = { key = keymaker(id), id = id }
 			return self
 		end,
 		
@@ -60,12 +58,14 @@ local new = function(key, self, object, autoincr_key)
 		end,
 		
 		insert = function(self)
-			if id[self] then 
+			assert(self, "did you call foo.insert() instead of foo:insert()?")
+			if self:getId() then 
 				return nil, self:getKey() .. " already exists."
 			else
 				local newId, err = redis:increment(autoincr_key)
 				if not newId then return nil, err end
-				self:setId(newId)
+				self:setKey(newId)
+				self._created = os.time()
 				return self:update()
 			end
 		end,
@@ -92,6 +92,8 @@ local new = function(key, self, object, autoincr_key)
 		end
 	}}
 	
+	table.mergeWith(objectmeta.__index, object, true)
+
 	local tablemeta = { __index = {
 		new = function(self, id, res)
 			if #arg==0 then
@@ -100,7 +102,11 @@ local new = function(key, self, object, autoincr_key)
 			
 			local res = res or {}
 			setmetatable(res, objectmeta)
-			return res:setKey(id)
+			if id then
+				return res:setKey(id) 
+			else
+				return res
+			end
 		end, 
 		
 		find = function(self, id)
@@ -123,12 +129,20 @@ local new = function(key, self, object, autoincr_key)
 	
 	setmetatable(self, tablemeta)
 	--support for custom-ish creation and deletion
-	local custom = {[tablemeta]={'new'}, [objectmeta]={'insert', 'update', 'delete'}}
-	for tbl, customizeables in pairs(custom) do
-		for i, v in ipairs(customizeables) do
-			if type(tbl[v])=="function" then
-				local normal, additional = tbl.__index[v], tbl[v]
-				tbl.__index[v] = function(...)
+	local custom = {
+		{ src=self, dst=self, meta=tablemeta, 
+			'new'
+		}, 
+		{ src=object, dst=objectmeta.__index, meta=objectmeta,
+			'insert', 'update', 'delete'
+		}
+	}
+	for _, c in pairs(custom) do
+		for i, v in ipairs(c) do
+			local additional = c.src[v]
+			if type(additional)=="function" then
+				local normal = c.meta.__index[v]
+				c.dst[v] = function(...)
 					local res, err = normal(...)
 					if res then
 						return additional(...)
@@ -139,7 +153,6 @@ local new = function(key, self, object, autoincr_key)
 			end
 		end
 	end
-
 	return self
 end
 
