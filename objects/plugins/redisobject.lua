@@ -37,39 +37,8 @@ local new = function(key, self, object, autoincr_key)
 	local cache = setmetatable({},{__mode='k', __index=function(t,k,v)
 		return emptytable
 	end}) --store private stuff here
-
-	local objectmeta = {__index={
-		
-		setKey = function(self, id)
-			cache[self] = { key = keymaker(id), id = id }
-			return self
-		end,
-		
-		getKey = function(self)
-			return cache[self].key
-		end,
-
-		getId = function(self)
-			return cache[self].id
-		end,
-		
-		delete = function(self)
-			redis:delete(self:getKey())
-		end,
-		
-		insert = function(self)
-			assert(self, "did you call foo.insert() instead of foo:insert()?")
-			if self:getId() then 
-				return nil, self:getKey() .. " already exists."
-			else
-				local newId, err = redis:increment(autoincr_key)
-				if not newId then return nil, err end
-				self:setKey(newId)
-				self._created = os.time()
-				return self:update()
-			end
-		end,
-		
+	local tablemeta, objectmeta
+	local crud={
 		update = function(self, what)
 			local key = self:getKey()
 			local res, err
@@ -89,26 +58,62 @@ local new = function(key, self, object, autoincr_key)
 			else 
 				return nil, err
 			end
-		end
-	}}
-	
-	table.mergeWith(objectmeta.__index, object, true)
-
-	local tablemeta = { __index = {
-		new = function(self, id, res)
-			if #arg==0 then
-				return nil, "id not given!"
+		end,
+		insert = function(self)
+			assert(self, "did you call foo.insert() instead of foo:insert()?")
+			if self:getId() then 
+				return nil, self:getKey() .. " already exists."
+			else
+				local newId, err = self:reserveId()
+				if not newId then return nil, err end
+				self:setId(newId)
+				self._created = os.time()
+				return self:update()
 			end
-			
+		end,
+		delete = function(self)
+			redis:delete(self:getKey())
+		end,
+		
+		--what's this guy doing here?...
+		new = function(self, id, res)
+			debug.print(objectmeta or "NOT A GODDAMN THING")
 			local res = res or {}
 			setmetatable(res, objectmeta)
 			if id then
-				return res:setKey(id) 
+				return res:setId(id) 
 			else
 				return res
 			end
-		end, 
+		end,
 		
+		reserveId = reserveId
+	}
+
+	objectmeta = {__index={
+		
+		setId = function(self, id)
+			cache[self] = { key = keymaker(id), id = id }
+			return self
+		end,
+		
+		getKey = function(self)
+			return cache[self].key
+		end,
+
+		getId = function(self)
+			return cache[self].id
+		end,
+		
+		insert = crud.insert,
+		update = crud.update,
+		delete = crud.delete
+	}}
+	
+	table.mergeWith(objectmeta.__index, object)
+
+	tablemeta = { __index = {
+		new = crud.new,
 		find = function(self, id)
 			local key = keymaker(id)
 			if not key then return nil, "Nothing to look for" end
@@ -120,39 +125,41 @@ local new = function(key, self, object, autoincr_key)
 			end
 		end,
 		
+		fromSort = function(self, key, pattern, maxResults, offset, descending, lexicographic)
+			local res, err = redis:sort(key, {
+				by=pattern or "nosort", 
+				get="# GET " .. self:getKey():format("*"),  --oh the ugly!
+				sort=descending and "desc" or nil, 
+				alpha = lexicographic or nil,
+				limit = maxResults and {offset or 0, maxResults}
+			})
+			if res then
+				for i=0, #res, 2 do
+					res[i+1]=self:new(res[i], res[i+1])
+					table.remove(res, i)
+				end
+			end
+			return res
+		end,
+		
+		fromExternalSet = function(self, setKey, maxResults, offset, descending, lexicographic)
+			return self:fromSort(setKey, nil, maxResults, offset, descending, lexicographic)			
+		end,
+
 		setAutoIncrementKey = function(self, key)
 			assert(type(key)=="string", "Autoincrement key must be a string")
 			autoincr_key = key
 			return self
+		end,
+		
+		reserveId = reserveId,
+
+		getDefaultFunction = function(self, whatThing)
+			return assert(crud[whatThing], "Default function " .. whatThing .. " not found.")
 		end
 	}}
 	
 	setmetatable(self, tablemeta)
-	--support for custom-ish creation and deletion
-	local custom = {
-		{ src=self, dst=self, meta=tablemeta, 
-			'new'
-		}, 
-		{ src=object, dst=objectmeta.__index, meta=objectmeta,
-			'insert', 'update', 'delete'
-		}
-	}
-	for _, c in pairs(custom) do
-		for i, v in ipairs(c) do
-			local additional = c.src[v]
-			if type(additional)=="function" then
-				local normal = c.meta.__index[v]
-				c.dst[v] = function(...)
-					local res, err = normal(...)
-					if res then
-						return additional(...)
-					else
-						return nil, err
-					end
-				end
-			end
-		end
-	end
 	return self
 end
 
