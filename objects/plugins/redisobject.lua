@@ -26,22 +26,24 @@ local new = function(key, self, object, autoincr_key)
 	
 	local function reserveId(self)
 		if autoincr_key then
-			local res, err = redis:increment(autoincr_key)
+			local res, err = redis:incr(autoincr_key)
 			return res
 		else
 			return nil, "don't know how to autoincrement ids for key pattern " .. (keypattern or "???")
 		end
 	end
 	
-	local emptytable = {}
-	local cache = setmetatable({},{__mode='k', __index=function(t,k,v)
-		return emptytable
+	local cache = setmetatable({},{__mode='k', __index=function(t,k)
+		local this = {}
+		t[k]=this
+		return this
 	end}) --store private stuff here
 	local tablemeta, objectmeta
 	local crud={
 		update = function(self, what)
 			local key = self:getKey()
 			local res, err
+			
 			if not what then
 				res, err = redis:hmset(key, self)
 			elseif type(what)=='string' then
@@ -60,19 +62,21 @@ local new = function(key, self, object, autoincr_key)
 			end
 		end,
 		insert = function(self)
+			debug.print(self, debug.traceback())
 			assert(self, "did you call foo.insert() instead of foo:insert()?")
-			if self:getId() then 
-				return nil, self:getKey() .. " already exists."
-			else
+			if not self:getId() then
 				local newId, err = self:reserveId()
 				if not newId then return nil, err end
 				self:setId(newId)
-				self._created = os.time()
-				return self:update()
 			end
+			if table.empty(self) then
+				self._created = os.time()
+			end
+			return self:update()
 		end,
+
 		delete = function(self)
-			redis:delete(self:getKey())
+			redis:del(self:getKey())
 		end,
 		
 		--what's this guy doing here?...
@@ -85,15 +89,14 @@ local new = function(key, self, object, autoincr_key)
 			else
 				return res
 			end
-		end,
-		
-		reserveId = reserveId
+		end
 	}
 
 	objectmeta = {__index={
 		
 		setId = function(self, id)
-			cache[self] = { key = keymaker(id), id = id }
+			assert(self, "self missing")
+			cache[self].key, cache[self].id = keymaker(id), id
 			return self
 		end,
 		
@@ -102,8 +105,11 @@ local new = function(key, self, object, autoincr_key)
 		end,
 
 		getId = function(self)
+			assert(self, "self missing")
 			return cache[self].id
 		end,
+
+		reserveId = reserveId,
 		
 		insert = crud.insert,
 		update = crud.update,
