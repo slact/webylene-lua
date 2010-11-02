@@ -1,4 +1,36 @@
 #!/usr/bin/env lua
+function getopts(t, input)
+	local alwaysatable=function(x) return type(x)=='table' and x or {x} end
+	local res = {}
+	for i=1, #input do
+		for j, matchstr in ipairs{"^-(%w)=?(.*)$", "^--(%w%w+)=?(.*)$" } do
+			local name, val = input[i]:match(matchstr)
+			if name and (not val or #val==0) then 
+				val = (input[i+1] or ""):match("^([^%-].*)")
+				if val then 
+					i = i+1 
+				end
+			end
+			if name then res[name]=val or false end
+		end
+		
+		for opts, callback in pairs(t) do
+			for k, opt in pairs(alwaysatable(opts)) do
+				if res[opt]~=nil then 
+					local exitnum = callback(res[opt])
+					if type(exitnum)=='number' then
+						os.exit(exitnum)
+					end
+					res[opts]=nil
+				end
+			end
+		end
+	end
+	if (next(t)) and alwaysatable((next(t))).required then
+		error("Required parameter " .. alwaysatable(next(t))[1] .. " missing.", 0)
+	end
+end
+
 --luarocks
 pcall( require, "luarocks.loader")
 package.path = package.path .. ";./share/?.lua"
@@ -7,12 +39,11 @@ local PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/pos
 local protocol, path, reload, environment, log_file, serverstring, host, port
 local version = "0.93"
 --parse command-line parameters
-local getopt = require "alt_getopt"
-local helpstr = [[webylene bootstrap.
+local helpstr = ([[webylene %s bootstrap.
 Usage: bootstrap.lua [OPTIONS]
 Example: ./bootstrap.lua --path=/var/www/webylene --protocol=fcgi --env dev
 Options:
-  -p, --path=STR      Path to webylene project. Required.
+  -p, --path=STR      Path to webylene project.
   -P, --protocol=STR
                       Protocol used by webylene to talk to server.
 					  Can be any of: cgi, fcgi, http.
@@ -29,41 +60,33 @@ Options:
   -V, --verbose       Print logs to stdout as well as a file.
   -h, --help          This help message.
   -v, --version       Display version information.
-]]
-local success, opts = pcall(getopt.get_opts, {...}, "p:P:e:l::hs:vV", {
-	path='p', protocol='P', env='e', environment='e', reload=0, help='h', server='s', version='v', verbose='V', log='l'
-})
+]]):format(version)
 local arg = {}
-if not success then io.stderr:write(opts) return 1 end
-for a, v in pairs(opts) do
-	if a=="P" then --this is the protocol we will use
-		arg.protocol = v
-	elseif a=="p" then --webylene root! woot!
-		arg.path = v
-	elseif a=="reload" then
-		arg.reload = true
-	elseif a=='l' then
-		arg.log_file = v
-	elseif a=="e" then
-		arg.environment = v
-	elseif a=="s" then
-		arg.host, arg.port = v:match("^([^:]+):?(%d*)$")
+local function setarg(name) return function(val) arg[name] = val or true end end
+getopts({
+	[{'P', 'protocol'}]		= function(val) if not arg.protocol then arg.protocol=val end end,
+	[{'p', 'path'}]			= setarg('path'),
+	[{'reload'}]			= setarg('reload'),
+	[{'e', 'env', 'environment'}] = setarg('environment'),
+	[{'l', 'log'}]			= setarg('log_file'),
+	[{'s', 'server'}]		= function(val)
+		if not val then
+			io.stderr:write("No value given for --server (-s) parameter.")
+			return 1
+		end
+		arg.host, arg.port = val:match("^([^:]+):?(%d*)$")
 		if not arg.host then
 			io.stderr:write("invalid server hostname")
 			return 1
 		end
-		--oroxy is meaningful, too -- it's httpd serving only webylene (no static stuff)
+		if #arg.port==0 then arg.port=nil end
 		if arg.protocol ~= 'proxy' then arg.protocol = 'http' end
-	elseif a=='V' then
-		arg.verbose = true
-	elseif a=="v" then
-		print("webylene " .. version)
-		return 0
-	elseif a=="h" then 
-		print(helpstr)  
-		return 0
-	end
-end
+	end,
+	[{'h', '?', 'help'}]	= function() print(helpstr) return 0 end,
+	[{'v', 'version'}]		= function() print("webylene " .. version) return 0 end,
+	[{'V', 'verbose'}]		= setarg('verbose')
+}, _G.arg)
+
 if not arg.protocol then io.stderr:write("You must specify a protocol. check -h or --help for help.\r\n") return 1 end
 arg.path_separator = PATH_SEPARATOR
 if not arg.path then --framework, find thyself!
@@ -113,9 +136,10 @@ local function wsapi_request_recovery_pretender(self, ...)
 end
 initialize()
 
+local must_reload = arg.reload
 local run_connector = webylene:initialize_connector(arg.protocol, function(env)
 	local success, status, headers, iterator = pcall(wsapi_request, webylene, env)
-	if not success or reload then -- oh shit, bad error. let the parent environment handle it.
+	if not success or must_reload then -- oh shit, bad error. let the parent environment handle it.
 		wsapi_request = wsapi_request_recovery_pretender
 		if not success and rawget(webylene, "logger") then  pcall(webylene.logger.fatal, webylene.logger, status) end
 		if rawget(webylene, "core") then pcall(webylene.core.shutdown) end --to to tell it to shut down

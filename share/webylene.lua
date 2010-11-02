@@ -4,13 +4,14 @@
 local req = require "wsapi.request"
 local resp = require "wsapi.response"
 local wsapi = wsapi
+require "utilities.debug"
 
 local xpcall, pcall, error, assert, debug, io, rawget, rawset = xpcall, pcall, error, assert, debug, io, rawget, rawset
 local ipairs, pairs, require = ipairs, pairs, require
 local table, type, setfenv, loadfile, setmetatable, rawset = table, type, setfenv, loadfile, setmetatable, rawset
 local _G = _G
 local print = print
-
+local stderr, tostring = io.stderr, tostring
 
 --- import a lua chunk and load it as an index in the webylene table. 
 -- @param file_chunk lua chunk, at least defining a table named object_name
@@ -217,10 +218,10 @@ function new(runtime_environment, parent)
 					server = { host= host, port=port },
 					defaultHost = {
 						rules = { {
-							match = "",
+						match = ".*",
 							with = connector_name=='proxy' and webylenehandler or function(req, res, ...)
-								local fres = filehandler(req, make_response(req), ...)
-								if fres.statusline ~= "HTTP/1.1 404 Not Found" and fres.statusline ~= "HTTP/1.1 301 Moved Permanently" then
+								local fres, err = filehandler(req, make_response(req), ...)
+								if not fres.statusline:match("^HTTP/%d+%.%d+%s+[34]%d%d") then
 									return fres;
 								else
 									return webylenehandler(req, res, ...)

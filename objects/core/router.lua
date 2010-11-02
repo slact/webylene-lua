@@ -59,7 +59,19 @@ router = {
 			return #res~=0 and res or nil
 		end
 		event:addListener("request", function()
-			return self:route(get_request_env('SCRIPT_URI') or get_request_env('PATH_INFO') or get_request_env('REQUEST_URI'))
+			local script_uri = get_request_env('SCRIPT_URI')
+			if script_uri then
+				return self:route(script_uri)
+			else
+				local path_info, request_uri = get_request_env('PATH_INFO'), get_request_env('REQUEST_URI')
+				if path_info and request_uri then
+					return self:route((#path_info < #request_uri) and request_uri or path_info)
+				elseif path_info or request_uri then
+					return self:route(path_info or request_uri)
+				else
+					return self:route500("Can't do any routing because webylene can't find the request URL.")
+				end
+			end
 		end)
 	end,
 
@@ -81,7 +93,7 @@ router = {
 	--- route to the 404 page. this gets its own function because it might be considered a default -- no route, so take Route 404.
 	route404 = function(self)
 		event:fire("route404")
-		return arrive(self, parser.parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
+		return (event:active("arrive") and raw_arrive or arrive)(self, parser.parseRoute({path=" ", ref="404", destination=self.settings["404"]}))
 	end,
 	
 	--if there was an error executing a page script
