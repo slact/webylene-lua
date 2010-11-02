@@ -116,9 +116,7 @@ local function initialize()
 	package.loaded.webylene, webylene = nil, nil;
 	require "webylene"
 	local w = webylene.new()
-	setmetatable(_G, { __index = w }) -- so that we don't have to write webylene.this and webylene.that and so forth all the time.	
-	
-	_G.webylene = w
+	w:setEnv(_G)
 	local res, err = pcall(w.initialize, w, arg)
 	
 	if not res then

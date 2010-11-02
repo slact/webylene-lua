@@ -31,7 +31,7 @@ require "lfs"
 
 local webylene = webylene
 --- webylene core. this does all sorts of bootstrappity things.
-local load_config, load_objects  --closured for fun and profit. mostly fun.
+local load_config, load_objects, load_addons  --closured for fun and profit. mostly fun.
 core = {
 	--- initialize webylene
 	initialize = function(self)
@@ -53,7 +53,11 @@ core = {
 				load_config("config", "lua")
 				load_config("config", "yaml")
 			ev:finish("loadConfig")
-		
+			
+			ev:start("loadAddons")
+				load_addons(self, cf "addons_path"  || cf 'path' .. cf 'path_separator' .. "addons")
+			ev:finish("loadAddons")
+
 			--load core objects
 			ev:start("loadCore")
 				load_objects(cf('paths', 'core'))
@@ -83,7 +87,7 @@ core = {
 	
 --- load config files of type <extension> from path <relative_path>. if <relative_path> is a folder, load all files with extension <extension>
 --remember, this is local.
-load_config = function(relative_path, extension)
+load_config = function(self, relative_path, extension)
 	local sep = cf('path_separator')
 	extension = extension or "yaml"
 	local loadFile = {
@@ -99,11 +103,11 @@ load_config = function(relative_path, extension)
 				error(err, 0)
 			end
 			--address environment-specific settings
-			if conf.env and conf.env[webylene.env] then	
+			if conf.env and conf.env[self.env] then	
 				table.mergeRecursivelyWith(conf, conf.env[webylene.env])
 				conf.env = nil
 			end
-			table.mergeRecursivelyWith(webylene.config, conf)
+			table.mergeRecursivelyWith(self.config, conf)
 		end,
 		lua	= function(path)
 			dofile(path)
@@ -122,14 +126,23 @@ end
 	
 --- load all objects in lua files in relativePath
 --remember, this is local.
-load_objects = function(from_where)
-	local webylene = webylene -- so that we don't have to go metatable-hopping all the time
+load_objects = function(self, from_where)
 	local extension = "lua"
 	local extension_cutoff = #extension+2 --the dot +1
 	for file in lfs.dir(from_where) do																				-- is this part right?...
 		if file ~= "." and file ~= ".." and lfs.attributes(from_where .. cf('path_separator') .. file, "mode")=="file" and file:sub(-#extension) == extension then
-			local obj = webylene[file:sub(1, -extension_cutoff)]
+			local obj = self[file:sub(1, -extension_cutoff)]
 		end
 	end
 	return true
+end
+
+load_addons = function(self, from_where)
+	for addon_root in lfs.dir(from_where) do
+		if lfs.attributes(from_where .. cf 'path_separator'  .. file, "mode")=="directory" then
+			local env = setmetatable({}, {__index=_G})
+			local w = require("webylene").new(self)
+			
+		end
+	end
 end

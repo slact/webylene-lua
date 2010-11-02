@@ -40,8 +40,7 @@ module(...)
 
 local newrequest, newresponse = req.new, resp.new
 
-function new(runtime_environment, parent)
-	setfenv(1, env or _G)
+function new(parent, path)
 	local config = {
 		paths = {
 			import={}
@@ -79,7 +78,7 @@ function new(runtime_environment, parent)
 				f:close()
 				local chunk, err = loadfile(mypath)
 				if not chunk then error(err, 0) end
-				result = importChunk(self, chunk, object_name, runtime_environment)
+				result = importChunk(self, chunk, object_name, env)
 				if result ~= nil then
 					logger:debug(("Imported %s from %s"):format(object_name, mypath))
 					return result
@@ -97,7 +96,8 @@ function new(runtime_environment, parent)
 		fastcgi = 'fastcgi',
 		fcgi = 'fastcgi',
 		http = 'xavante',
-		proxy = 'xavante'
+		proxy = 'xavante',
+		dummy
 	}
 	
 	if(parent) then
