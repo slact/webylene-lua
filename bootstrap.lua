@@ -1,6 +1,13 @@
 #!/usr/bin/env lua
 function getopts(t, input)
 	local alwaysatable=function(x) return type(x)=='table' and x or {x} end
+	local indices=function(t, ind)
+		local res
+		for i, k in ipairs(ind) do
+			res = t[k]
+			if res~=nil then return res end
+		end
+	end
 	local res = {}
 	for i=1, #input do
 		for j, matchstr in ipairs{"^-(%w)=?(.*)$", "^--(%w%w+)=?(.*)$" } do
@@ -13,28 +20,21 @@ function getopts(t, input)
 			end
 			if name then res[name]=val or false end
 		end
-		
-		for opts, callback in pairs(t) do
-			for k, opt in pairs(alwaysatable(opts)) do
-				if res[opt]~=nil then 
-					local exitnum = callback(res[opt])
-					if type(exitnum)=='number' then
-						os.exit(exitnum)
-					end
-					res[opts]=nil
-				end
+	end
+	for opt_aliases, callback in pairs(t) do
+		local opt_found = indices(res, opt_aliases)
+		if(opt_found~=nil) then 
+			local n = callback(opt_found) 
+			if(type(n)=="number") then
+				os.exit(n)
 			end
 		end
-	end
-	if (next(t)) and alwaysatable((next(t))).required then
-		error("Required parameter " .. alwaysatable(next(t))[1] .. " missing.", 0)
 	end
 end
 
 --luarocks
 pcall( require, "luarocks.loader")
 package.path = package.path .. ";./share/?.lua"
-
 local PATH_SEPARATOR = "/" --filesystem path separator. "/" for unixy/linuxy/posixy things, "\" for windowsy systems
 local protocol, path, reload, environment, log_file, serverstring, host, port
 local version = "0.93"
@@ -55,7 +55,7 @@ Options:
                       when a persistent protocol is used (fcgi, http, scgi).
   -s, --server=*:80   If webylene is being started as a standalone server, sets
                       the hostname and port it listens on. Default value is
-                      localhost:80 for http.(Applicable only when protocol=http)
+                      localhost:8080 for http.(Applicable when protocol=http)
   -l, --log           log file. Default to logs/webylene.log
   -V, --verbose       Print logs to stdout as well as a file.
   -h, --help          This help message.
@@ -71,12 +71,12 @@ getopts({
 	[{'l', 'log'}]			= setarg('log_file'),
 	[{'s', 'server'}]		= function(val)
 		if not val then
-			print("No value given for --server (-s) parameter. Assuming localhost:80")
-			val="localhost:80"
+			print("No value given for --server (-s) parameter. Assuming localhost:8080")
+			val="localhost:8080"
 		end
-		arg.host, arg.port = val:match("^([^:]+):?(%d*)$")
+		arg.host, arg.port = val:match("^([%w%.%-%_]+):?(%d*)$")
 		if not arg.host then
-			io.stderr:write("invalid server hostname")
+			io.stderr:write("Invalid server hostname\r\n")
 			return 1
 		end
 		if #arg.port==0 then arg.port=nil end
@@ -101,14 +101,14 @@ if not arg.path then --framework, find thyself!
 			arg.path = pwd
 		end
 	end
-	
+	if (arg.path:sub(-1)~=PATH_SEPARATOR) then arg.path = arg.path .. PATH_SEPARATOR end
 	if arg.path then io.stderr:write("Application path not specified. Guessed it to be '" .. tostring(arg.path) .. "'\n") end
 end
 if not arg.path then io.stderr:write("couldn't find webylene project path. try -h for help.\n") return 1 end
 
 --let local requires work
-package.path =	   arg.path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?.lua;" 
-				.. arg.path .. PATH_SEPARATOR .. "share" .. PATH_SEPARATOR .. "?" .. PATH_SEPARATOR .. "init.lua;" 
+package.path =	   arg.path .. "share" .. PATH_SEPARATOR .. "?.lua;" 
+				.. arg.path .. "share" .. PATH_SEPARATOR .. "?" .. PATH_SEPARATOR .. "init.lua;" 
 				.. package.path
 
 local wsapi_request
