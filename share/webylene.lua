@@ -5,7 +5,7 @@ local req = require "wsapi.request"
 local resp = require "wsapi.response"
 local wsapi = wsapi
 require "utilities.debug"
-
+local lfs = require "lfs"
 local xpcall, pcall, error, assert, debug, io, rawget, rawset = xpcall, pcall, error, assert, debug, io, rawget, rawset
 local ipairs, pairs, require = ipairs, pairs, require
 local table, type, setfenv, loadfile, setmetatable, rawset = table, type, setfenv, loadfile, setmetatable, rawset
@@ -36,18 +36,20 @@ end
 local function inherit(tbl, inheritance)
 	local meta = getmetatable(tbl)
 	if not meta then
-		meta = {}
-		setmetatable(tbl, meta)
-	end
-	local __index = meta.__index
-	if type(__index)=='table' then
-		return setlowestmetatable(meta.__index)
-	elseif type(__index)=="function" then
-		meta.__index = function(t, k)
-			return  __index(t,k) or inheritance[k]
+		setmetatable(tbl, {__index=inheritance})
+	elseif meta.__index then
+		local __index = meta.__index
+		if type(__index)=="function" then
+			meta.__index = function(t, k)
+				local res = inheritance[k]
+				return (res == nil) and __index(t, k) or res
+			end
+		else
+			meta.__index = function(t, k)
+				local res = inheritance[k]
+				return (res == nil) and __index[k] or res
+			end
 		end
-	elseif not __index then
-		meta.__index = inheritance
 	end
 end
 
@@ -65,9 +67,15 @@ function new(parent, path)
 			addons={}
 		}
 	}
-	
-	local chunk_env = _G
+	local function add_path(what, path)
+		if lfs.attributes(path, "mode")=="directory" then
+			table.insert(config.paths[what], path)	
+		end
+	end
 
+
+	local chunk_env = _G
+	config.parent = parent
 	local core_request, erry = nil, function(err)
 		if not config or (type(config)=="table" and config.show_backtrace~=false) then
 			return err ..  "\r\n" .. debug.traceback("", 2)
@@ -84,7 +92,11 @@ function new(parent, path)
 		if exists ~= nil then
 			return exists 
 		elseif disregard[object_name] then
-			return nil
+			if parent  then
+				return parent[object_name]
+			else
+				return nil
+			end
 		end
 		local result
 		
@@ -107,7 +119,11 @@ function new(parent, path)
 		end		
 		-- we tried, but failed. make a note of it, and move on... :'( 
 		disregard[object_name] = true
-		return nil
+		if(parent) then
+			return parent[object_name]
+		else
+			return nil
+		end
 	end
 	
 	
@@ -116,7 +132,7 @@ function new(parent, path)
 		fastcgi = 'fastcgi',
 		fcgi = 'fastcgi',
 		http = 'xavante',
-		proxy = 'xavante',
+		proxy = 'xavante'
 	}
 	
 	return setmetatable({
@@ -137,24 +153,24 @@ function new(parent, path)
 				self:set_config(k,v)
 			end
 			if(parent) then
+				print(debug.dump(parent))
 				config.paths.core=parent.cf("paths","core")
 				setmetatable(config, {__index=parent.config})
 				for _, path_type in pairs{"import", "config"} do
-					local paths = config.paths[path_use]
-					for i, v in pairs(parent.cf("paths",path_use)) do
+					local paths = config.paths[path_type]
+					for i, v in pairs(parent.cf("paths" , path_type)) do
 						table.insert(paths, v)
 					end
 				end
 			elseif not self.cf("paths", "core") then
 				config.paths.core = self.cf "path" .. "objects" .. slash .. "core" .. slash
 			end
-			table.insert(config.paths.config, self.cf("paths", "root") .. "config" .. slash)
 			import_pathf = "%s%s.lua"  
-			
-			--paths to look for objects in, in order of preference
-			for i, relpath in pairs{"objects" .. slash, "objects" .. slash .. "plugins" .. slash} do
-				self:add_object_import_path(relpath, i)
-			end
+
+			add_path("config", self.cf "path" .. "config" .. slash)
+			add_path("import", self.cf "path" .. "objects" .. slash)
+			add_path("plugins", self.cf "path" .. "objects" .. slash .. "plugins" .. slash)
+			add_path("addons", self.cf "path" .. "addons" .. slash)
 
 			local res, err = xpcall(function()
 				import(self, "core", self.cf("paths", "core"))

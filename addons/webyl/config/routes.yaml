@@ -1,25 +1,7 @@
 ---
 router:
   routes:
-      
-    - bacon: /bacon/((?P<cheese>cheesy)/)?(?P<baconesque>(chewy|raw|crunchy))
-    
-    - default: /[^q]*
-      title: Titled Undocument 
-    
-    - about: /about
-      title: about
-    - tos: /tos
-      title: terms of service
-    - privacy: /privacy
-      title: privacy policy
-
-    
-#    - tests: /tests
-#    - info: /info
-    
-    - captcha: /captcha
-  
+    - testroute: /testroute
   '404': 404
   '500': 500
   
@@ -28,37 +10,3 @@ router:
   destinations:
     location: scripts
     extension: .lua
-
-
-env: 
-  dev:
-    router:
-      routes:
-        - debug/reset18: /reset18
-
-# example routes:
-#   routes:
-#    - destination:
-#        script: submissions
-#        param: { view: new }
-#      path: 
-#        url: /new
-#        param:
-#      
-#    - destination:
-#        script: submissions
-#      path:
-#        url: 
-#          - /top
-#          - /hot
-#          - /submissions 
-#          
-#    - bacon: /eggs/much/cheese
-#    
-#    - foods: [ /pork, /sausages, /cheese ]
-#    
-#    - submillion:
-#        url: |/sdddsasd/i
-#        param: { llloooo: kqqqq }
-#  
-#    - submissions: /   

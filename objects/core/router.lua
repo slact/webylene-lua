@@ -75,8 +75,8 @@ router = {
 		end)
 	end,
 
-	--- perform the routing, besed on the uri given
-	route = function(self, uri)
+	--- perform the routing, based on the uri given
+	route = function(self, uri, no404)
 		event:start("route")
 		local url = parseurl(uri).path
 		for i, route in ipairs(routes) do
@@ -86,8 +86,16 @@ router = {
 			end
 		end
 		--no route matched. 404 that sucker.
+		
+		for i, addon in pairs(webylene.addons) do
+			local res, err =addon.router:route(uri, true)
+			if res then 
+				event:finish("route")
+				return res, err 
+			end
+		end
 		event:finish("route")
-		return self:route404(url)
+		return not no404 and self:route404(url)
 	end,
 	
 	--- route to the 404 page. this gets its own function because it might be considered a default -- no route, so take Route 404.

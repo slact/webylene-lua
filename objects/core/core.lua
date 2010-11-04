@@ -59,7 +59,7 @@ core = {
 			ev:finish("loadCore")	
 			
 			ev:start("loadAddons")
-				load_addons(self, cf("paths", "addons"))
+				load_addons(self)
 			ev:finish("loadAddons")
 			
 			--load plugin objects
@@ -81,6 +81,9 @@ core = {
 	
 	shutdown = function()
 		webylene.event:fire("shutdown")
+		for i, addon in pairs(webylene.addons or {}) do
+			addon.event:fire("shutdown")
+		end
 	end
 }
 	
@@ -138,13 +141,20 @@ load_objects = function(self, from_where)
 end
 
 load_addons = function(self)
-	for i, from_where in pairs(cf("paths", "addons") or {}) do
+	for i, from_where in pairs(webylene.cf("paths", "addons") or {}) do
 		for addon in lfs.dir(from_where) do
-			if lfs.attributes(from_where  .. addon, "mode")=="directory" then
+			if addon ~="." and addon ~=".." and lfs.attributes(from_where  .. addon, "mode")=="directory" then
 				local env = setmetatable({}, {__index=_G})
-				local w = require("webylene").new(self)
-				--TODO: finish this
+				webylene.addons = webylene.addons or {}
+				local w = require("webylene").new(webylene)
+				w:set_env(env)
+				webylene.addons[addon]=w
+				w:initialize{
+					path=from_where .. addon .. cf("path_separator"),
+					protocol="none"
+				}
 			end
 		end
 	end
+	print(debug.dump(webylene.addons))
 end
