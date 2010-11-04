@@ -54,7 +54,8 @@ logger = setmetatable({
 			logpath = cf('paths', 'core') .. logpath
 		end
 		require "logging.file"
-		local file_logger, logger_err = logging.file(logpath)
+		local dateformat = "%x %X"
+		local file_logger, logger_err = logging.file(logpath, dateformat)
 		if file_logger then
 			table.insert(multiplog, file_logger)
 			cf('paths').log=logpath
@@ -63,8 +64,10 @@ logger = setmetatable({
 		end
 		
 		if log_to_console then
-			require "logging.console"
-			table.insert(multiplog, logging.console())
+			local consolog = logging.new(function(self, level, message)
+				io.stdout:write(logging.prepareLogMsg(logPattern, os.date(dateformat), level, message))
+			end)
+			table.insert(multiplog, consolog)
 		end
 		
 		if logger_err then
