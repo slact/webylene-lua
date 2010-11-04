@@ -35,9 +35,8 @@ local load_config, load_objects, load_addons  --closured for fun and profit. mos
 core = {
 	--- initialize webylene
 	initialize = function(self)
-		local ev = webylene.event
-		local logger = webylene.logger
-		print("let's begin.")
+		local ev = webylene:import("event", cf('paths', 'core'))
+		local logger = webylene:import("logger", cf('paths', 'core'))
 		logger:info("Starting ".. (cf('name') or cf('appname') or "webylene application") .. 
 		  (cf('environment')
 		    and (" in " .. cf('environment') .. " environment") 
@@ -50,23 +49,23 @@ core = {
 			
 			--load config
 			ev:start("loadConfig")
-				load_config("config", "lua")
-				load_config("config", "yaml")
+				load_config(self, "yaml")
+				load_config(self, "lua")
 			ev:finish("loadConfig")
 			
-			ev:start("loadAddons")
-				load_addons(self, cf "addons_path"  || cf 'path' .. cf 'path_separator' .. "addons")
-			ev:finish("loadAddons")
-
 			--load core objects
 			ev:start("loadCore")
-				load_objects(cf('paths', 'core'))
-			ev:finish("loadCore")
+				load_objects(self, cf('paths', 'core'))
+			ev:finish("loadCore")	
+			
+			ev:start("loadAddons")
+				load_addons(self, cf("paths", "addons"))
+			ev:finish("loadAddons")
 			
 			--load plugin objects
 			ev:start("loadPlugins")
 				for i,where_do_i_look in pairs(cf('paths', 'plugins')) do
-					load_objects(where_do_i_look)
+					load_objects(self, where_do_i_look)
 				end
 			ev:finish("loadPlugins")
 		ev:finish("initialize")
@@ -85,9 +84,9 @@ core = {
 	end
 }
 	
---- load config files of type <extension> from path <relative_path>. if <relative_path> is a folder, load all files with extension <extension>
+--- load config files of type <extension> from config paths
 --remember, this is local.
-load_config = function(self, relative_path, extension)
+load_config = function(self, extension)
 	local sep = cf('path_separator')
 	extension = extension or "yaml"
 	local loadFile = {
@@ -107,7 +106,7 @@ load_config = function(self, relative_path, extension)
 				table.mergeRecursivelyWith(conf, conf.env[webylene.env])
 				conf.env = nil
 			end
-			table.mergeRecursivelyWith(self.config, conf)
+			table.mergeRecursivelyWith(webylene.config, conf)
 		end,
 		lua	= function(path)
 			dofile(path)
@@ -115,10 +114,11 @@ load_config = function(self, relative_path, extension)
 	}
 	
 	assert(loadFile[extension], "Config loader doesn't know what to do with the  \"." .. extension .. "\" extension.")
-	local absolute_path = cf('path') .. sep .. relative_path
-	for file in lfs.dir(absolute_path) do																				-- is this part right?...
-		if file ~= "." and file ~= ".."  and lfs.attributes(absolute_path .. sep .. file, "mode")=="file" and file:sub(-#extension) == extension then
-			loadFile[extension](absolute_path .. sep .. file)
+	for i, absolute_path in pairs(cf("paths", "config")) do
+		for file in lfs.dir(absolute_path) do																				-- is this part right?...
+			if file ~= "." and file ~= ".."  and lfs.attributes(absolute_path .. sep .. file, "mode")=="file" and file:sub(-#extension) == extension then
+				loadFile[extension](absolute_path .. sep .. file)
+			end
 		end
 	end
 	return true
@@ -137,12 +137,14 @@ load_objects = function(self, from_where)
 	return true
 end
 
-load_addons = function(self, from_where)
-	for addon_root in lfs.dir(from_where) do
-		if lfs.attributes(from_where .. cf 'path_separator'  .. file, "mode")=="directory" then
-			local env = setmetatable({}, {__index=_G})
-			local w = require("webylene").new(self)
-			
+load_addons = function(self)
+	for i, from_where in pairs(cf("paths", "addons") or {}) do
+		for addon in lfs.dir(from_where) do
+			if lfs.attributes(from_where  .. addon, "mode")=="directory" then
+				local env = setmetatable({}, {__index=_G})
+				local w = require("webylene").new(self)
+				--TODO: finish this
+			end
 		end
 	end
 end

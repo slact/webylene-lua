@@ -21,8 +21,8 @@ local importChunk = function(self, file_chunk, object_name, env)
 	if file_chunk == nil then return end 
 	
 	local relatively_safe_env = setmetatable({}, {__index=env or _G})
-	setfenv(file_chunk, relatively_safe_env)() -- run the file in a (relatively) safe environment
-	local result = rawget(relatively_safe_env, object_name)
+	local ret = setfenv(file_chunk, relatively_safe_env)() -- run the file in a (relatively) safe environment
+	local result = rawget(relatively_safe_env, object_name) or ret
 	if result ~= nil then --there it is!
 		rawset(self, object_name, result)
 		if (type(result)=="table") and (type(result.init) == "function") then --if it's a table and has an init, run it.
@@ -33,20 +33,41 @@ local importChunk = function(self, file_chunk, object_name, env)
 	return nil
 end
 
+local function inherit(tbl, inheritance)
+	local meta = getmetatable(tbl)
+	if not meta then
+		meta = {}
+		setmetatable(tbl, meta)
+	end
+	local __index = meta.__index
+	if type(__index)=='table' then
+		return setlowestmetatable(meta.__index)
+	elseif type(__index)=="function" then
+		meta.__index = function(t, k)
+			return  __index(t,k) or inheritance[k]
+		end
+	elseif not __index then
+		meta.__index = inheritance
+	end
+end
 
 module(...)
 
 --- connectors
-
 local newrequest, newresponse = req.new, resp.new
 
 function new(parent, path)
 	local config = {
 		paths = {
-			import={}
+			import={},
+			config={},
+			plugins={},
+			addons={}
 		}
 	}
 	
+	local chunk_env = _G
+
 	local core_request, erry = nil, function(err)
 		if not config or (type(config)=="table" and config.show_backtrace~=false) then
 			return err ..  "\r\n" .. debug.traceback("", 2)
@@ -78,9 +99,8 @@ function new(parent, path)
 				f:close()
 				local chunk, err = loadfile(mypath)
 				if not chunk then error(err, 0) end
-				result = importChunk(self, chunk, object_name, env)
+				result = importChunk(self, chunk, object_name, chunk_env)
 				if result ~= nil then
-					logger:debug(("Imported %s from %s"):format(object_name, mypath))
 					return result
 				end
 			end
@@ -97,40 +117,47 @@ function new(parent, path)
 		fcgi = 'fastcgi',
 		http = 'xavante',
 		proxy = 'xavante',
-		dummy
 	}
-	
-	if(parent) then
-		config.paths.core=parent.cf("paths","core")
-		setmetatable(config, {__index=parent.config})
-		local imports = self.cf("paths", "import")
-		for i, v in pairs(parent.cf("paths","import")) do
-			table.insert(imports, v)
-		end
-		
-	end
 	
 	return setmetatable({
 		config = config,
 		
 		--- environmental bootstrapping. figure out where we are and whatnot
 		initialize = function(self, arg)
-			
 			--assert(environment, "Webylene environment is a must!") --environment is really quite optional
-			arg.path_separator = arg.path_separator or '/'
 			
+			--path setting logic
+			arg.path_separator = arg.path_separator or '/'
+			local slash = arg.path_separator
+			if arg.path and arg.path:sub(-1)~=slash then
+				arg.path = arg.path .. slash
+			end
+			config.paths.root=arg.path
 			for k, v in pairs(arg) do 
 				self:set_config(k,v)
 			end
-
-			import_pathf = "%s" .. config.path_separator .. "%s.lua"  
+			if(parent) then
+				config.paths.core=parent.cf("paths","core")
+				setmetatable(config, {__index=parent.config})
+				for _, path_type in pairs{"import", "config"} do
+					local paths = config.paths[path_use]
+					for i, v in pairs(parent.cf("paths",path_use)) do
+						table.insert(paths, v)
+					end
+				end
+			elseif not self.cf("paths", "core") then
+				config.paths.core = self.cf "path" .. "objects" .. slash .. "core" .. slash
+			end
+			table.insert(config.paths.config, self.cf("paths", "root") .. "config" .. slash)
+			import_pathf = "%s%s.lua"  
 			
 			--paths to look for objects in, in order of preference
-			for i, relpath in pairs{"objects"} do
+			for i, relpath in pairs{"objects" .. slash, "objects" .. slash .. "plugins" .. slash} do
 				self:add_object_import_path(relpath, i)
 			end
+
 			local res, err = xpcall(function()
-				import(self, "core", config.paths.core or (config.path .. config.path_separator .. "objects" .. config.path_separator .. "core"))
+				import(self, "core", self.cf("paths", "core"))
 				core_request = self.core.request
 				self.core:initialize()
 			end,
@@ -144,6 +171,14 @@ function new(parent, path)
 		
 		set_config = function(self, k, v)
 			rawset(config, k, v)
+			return self
+		end,
+
+		set_env = function(self, env)
+			env.webylene=self
+			env.w=self
+			inherit(env, self)
+			chunk_env = env
 			return self
 		end,
 		
@@ -179,7 +214,7 @@ function new(parent, path)
 		end,
 		
 		add_object_import_path = function(self, path, n)
-			table.insert(self.cf("paths", "import"), n or #table+1, config.path .. config.path_separator .. path)
+			table.insert(self.cf("paths", "import"), n or #table+1, self.cf("paths", "root") .. path)
 			return self
 		end,
 		

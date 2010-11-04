@@ -35,10 +35,10 @@
 local multiplog = {} --all the supported logging destinations
 
 local multiplog_call = function(key)
-	return function(notself, a, b, c)
+	return function(notself, ...)
 		for i=1, #multiplog do
 			local thislog = multiplog[i]
-			thislog[key](thislog, a, b, c)
+			thislog[key](thislog, ...)
 		end
 	end
 end
@@ -46,19 +46,18 @@ end
 require "logging"
 logger = setmetatable({
 	init = function(self)
-		local logpath = cf("log_file") or "logs/webylene.log"
-		if not logpath:match("^" .. cf('path_separator')) then
-			logpath = cf('path') .. cf('path_separator') .. logpath
+		local logpath = cf("log_file") or "logs" .. cf("path_separator") .. "webylene.log"
 		
 		local log_to_console = cf('verbose')
 		
-		if not logpath:match("^" .. webylene.path_separator) then
-			logpath = webylene.path .. webylene.path_separator .. logpath
+		if not logpath:match("^" .. cf('path_separator')) then
+			logpath = cf('paths', 'core') .. logpath
 		end
 		require "logging.file"
 		local file_logger, logger_err = logging.file(logpath)
 		if file_logger then
 			table.insert(multiplog, file_logger)
+			cf('paths').log=logpath
 		else --fallback to console logging
 			log_to_console = true
 		end
@@ -74,7 +73,7 @@ logger = setmetatable({
 		end
 		
 		--log important webylene loading events
-		for i, ev in pairs({"Utilities", "Config", "Core", "Plugins"}) do
+		for i, ev in pairs({"Utilities", "Config", "Core", "Plugins", "Addons"}) do
 			event:addFinishListener('load' .. ev, function()
 				self:info(ev .. " loaded without incident.")
 			end)

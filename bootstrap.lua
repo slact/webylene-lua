@@ -71,8 +71,8 @@ getopts({
 	[{'l', 'log'}]			= setarg('log_file'),
 	[{'s', 'server'}]		= function(val)
 		if not val then
-			io.stderr:write("No value given for --server (-s) parameter.")
-			return 1
+			print("No value given for --server (-s) parameter. Assuming localhost:80")
+			val="localhost:80"
 		end
 		arg.host, arg.port = val:match("^([^:]+):?(%d*)$")
 		if not arg.host then
@@ -116,7 +116,7 @@ local function initialize()
 	package.loaded.webylene, webylene = nil, nil;
 	require "webylene"
 	local w = webylene.new()
-	w:setEnv(_G)
+	w:set_env(_G)
 	local res, err = pcall(w.initialize, w, arg)
 	
 	if not res then
