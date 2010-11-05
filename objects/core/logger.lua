@@ -72,24 +72,25 @@ logger = setmetatable({
 		
 		if logger_err then
 			self:error("logger: " .. logger_err)
-			self:info("logger: Falling back on logging to console.")
+			self:warn("logger: logging to console.")
 		end
 		
 		--log important webylene loading events
-		for i, ev in pairs({"Utilities", "Config", "Core", "Plugins", "Addons"}) do
+		--[[for i, ev in pairs({"Utilities", "Config", "Core", "Plugins", "Addons"}) do
 			event:addFinishListener('load' .. ev, function()
 				self:info(ev .. " loaded without incident.")
 			end)
 		end
+		
 		event:addStartListener("initialize", function()
 			self:info("initializing")
 		end)
 		event:addFinishListener("initialize", function()
 			self:info("initialized without incident.")
 		end)
-		
+		]]
 		event:addStartListener("shutdown", function()
-			self:info("shutting down.")
+			self:info(("shutting down %s."):format(webylene.name or "webylene application"))
 		end)
 		
 	end
