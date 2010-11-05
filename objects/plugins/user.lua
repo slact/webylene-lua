@@ -1,4 +1,18 @@
-require "sha1"
+local sha1
+do
+	local s,  hash = pcall(require, "sha1")
+	if not s then
+		local s, crypto = pcall(require, "crypto")
+		if not s then 
+			error("Can't find a sha1 library (tried sha1 (lmd5) and crypto (LuaCrypto))")
+		else
+			local digest = (require "crypto.evp").digest
+			hash = function(input)
+				return digest("sha1", input)
+			end
+		end
+	end
+end
 
 --- basic user management object. 
 user = {
