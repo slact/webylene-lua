@@ -32,10 +32,11 @@ require "lfs"
 local webylene = webylene
 --- webylene core. this does all sorts of bootstrappity things.
 local load_config, load_objects, load_addons  --closured for fun and profit. mostly fun.
+local ev
 core = {
 	--- initialize webylene
 	initialize = function(self)
-		local ev = webylene:import("event", cf('paths', 'core'))
+		ev = webylene:import("event", cf('paths', 'core'))
 		local logger = webylene:import("logger", cf('paths', 'core'))
 		logger:info("Starting ".. (cf('name') or cf('appname') or "webylene application") .. 
 		  (cf('environment')
@@ -73,10 +74,7 @@ core = {
 	
 	--- respond to a request
 	request = function()
-		local e = webylene.event
-		e:start("request")
-			e:fire("route")
-		e:finish("request")
+		ev:fire("request")
 	end,
 	
 	shutdown = function()
@@ -132,9 +130,9 @@ end
 load_objects = function(self, from_where)
 	local extension = "lua"
 	local extension_cutoff = #extension+2 --the dot +1
-	for file in lfs.dir(from_where) do																				-- is this part right?...
+	for file in lfs.dir(from_where) do
 		if file ~= "." and file ~= ".." and lfs.attributes(from_where .. cf('path_separator') .. file, "mode")=="file" and file:sub(-#extension) == extension then
-			local obj = self[file:sub(1, -extension_cutoff)]
+			local obj = webylene:import(file:sub(1, -extension_cutoff), from_where)
 		end
 	end
 	return true
@@ -151,10 +149,11 @@ load_addons = function(self)
 				webylene.addons[addon]=w
 				w:initialize{
 					path=from_where .. addon .. cf("path_separator"),
-					protocol="none"
+					protocol="none",
+					name=(webylene.cf("name") or "webylene") .. " addon",
+					environment=cf("environment")
 				}
 			end
 		end
 	end
-	print(debug.dump(webylene.addons))
 end

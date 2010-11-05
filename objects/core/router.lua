@@ -33,7 +33,7 @@
 
 
 local rex = require "rex_pcre"
-local webylene, event, tinsert = webylene, event, table.insert
+local webylene,  tinsert = webylene, table.insert
 local parser, script_printf_path, walk_path, parseurl, arrive, raw_arrive --closureds
 local routes = {}
 
@@ -41,29 +41,29 @@ local routes = {}
 router = {
 	init = function(self)
 		local sep = cf('path_separator')
-		--set our configgy stuff
-		event:addListener("initialize",function()
-			self.settings=assert(cf("router"), "No router config found. bailing.")
-			script_printf_path = cf('path') .. sep .. self.settings.destinations.location .. sep .. "%s" .. self.settings.destinations.extension
 		
-			assert(self.settings.routes, "Routes not found")
-			--initialize routes
-			for i, raw_route in pairs(self.settings.routes) do
-				tinsert(routes, parser.parseRoute(raw_route))
-			end
-		end)
+		--set our configgy stuff
+		self.settings=assert(cf("router"), "No router config found. bailing.")
+		script_printf_path = cf('path') .. self.settings.destinations.location .. sep .. "%s" .. self.settings.destinations.extension
+	
+		assert(self.settings.routes, "Routes not found")
+		--initialize routes
+		for i, raw_route in pairs(self.settings.routes) do
+			tinsert(routes, parser.parseRoute(raw_route))
+		end
 		
 		--route when it's time to do so
 		local function get_request_env(var)
 			local res = request.env[var]
 			return #res~=0 and res or nil
 		end
-		event:addListener("request", function()
+		webylene.event:addListener("request", function()
 			local script_uri = get_request_env('SCRIPT_URI')
 			if script_uri then
 				return self:route(script_uri)
 			else
 				local path_info, request_uri = get_request_env('PATH_INFO'), get_request_env('REQUEST_URI')
+				
 				if path_info and request_uri then
 					return self:route((#path_info < #request_uri) and request_uri or path_info)
 				elseif path_info or request_uri then
@@ -85,13 +85,15 @@ router = {
 				return arrive(self, route)
 			end
 		end
-		--no route matched. 404 that sucker.
 		
-		for i, addon in pairs(webylene.addons) do
-			local res, err =addon.router:route(uri, true)
-			if res then 
-				event:finish("route")
-				return res, err 
+		--try it in an addon
+		if rawget(webylene, "addons") then
+			for i, addon in pairs(webylene.addons) do
+				local res, err = addon.router:route(uri, true)
+				if res then 
+					event:finish("route")
+					return res, err 
+				end
 			end
 		end
 		event:finish("route")
@@ -305,10 +307,10 @@ do
 	-- @param dangerous set this to true only if you want an error to trigger a total shutdown (and restart) of webylene. used when routing to a 500 page to avoid possible infinite loops.
 	arrive = function(self, route, dangerous)
 		self.currentRoute = route
-		
 		event:start("arrive")
-		raw_arrive(self, route, dangerous)
+		local res, err = raw_arrive(self, route, dangerous)
 		event:finish("arrive")
+		return res, err
 	end
 	
 	raw_arrive = function(self, route, dangerous)
@@ -335,5 +337,6 @@ do
 			-- an unfinished event is the least of your concerns. unless you were routing to 
 			-- an error page, what the hell are you doing using a dangerous arrival?
 		end
+		return self
 	end
 end 

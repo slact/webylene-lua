@@ -19,7 +19,6 @@ local stderr, tostring = io.stderr, tostring
 -- upon successful chunk loading, [object_name]:init() is called.
 local importChunk = function(self, file_chunk, object_name, env)
 	if file_chunk == nil then return end 
-	
 	local relatively_safe_env = setmetatable({}, {__index=env or _G})
 	local ret = setfenv(file_chunk, relatively_safe_env)() -- run the file in a (relatively) safe environment
 	local result = rawget(relatively_safe_env, object_name) or ret
@@ -92,11 +91,7 @@ function new(parent, path)
 		if exists ~= nil then
 			return exists 
 		elseif disregard[object_name] then
-			if parent  then
-				return parent[object_name]
-			else
-				return nil
-			end
+			return nil
 		end
 		local result
 		
@@ -113,15 +108,16 @@ function new(parent, path)
 				if not chunk then error(err, 0) end
 				result = importChunk(self, chunk, object_name, chunk_env)
 				if result ~= nil then
+					self[object_name]=result
 					return result
 				end
 			end
 		end		
 		-- we tried, but failed. make a note of it, and move on... :'( 
-		disregard[object_name] = true
 		if(parent) then
 			return parent[object_name]
 		else
+			disregard[object_name] = true
 			return nil
 		end
 	end
@@ -153,7 +149,7 @@ function new(parent, path)
 				self:set_config(k,v)
 			end
 			if(parent) then
-				print(debug.dump(parent))
+				--print(debug.dump(parent))
 				config.paths.core=parent.cf("paths","core")
 				setmetatable(config, {__index=parent.config})
 				for _, path_type in pairs{"import", "config"} do
