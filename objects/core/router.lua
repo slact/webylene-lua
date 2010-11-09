@@ -37,6 +37,44 @@ local webylene, event, tinsert = webylene, event, table.insert
 local parser, script_printf_path, walk_path, parseurl, arrive, raw_arrive --closureds
 local routes = {}
 
+local matchFiles = function(self)
+	local dest = {}
+	for i, r in pairs(routes) do
+		dest[r.destination.script]=true
+	end
+	dest[tostring(self.settings["404"])], dest[tostring(self.settings["500"])]=true, true
+	
+	assert(require "lfs", "LuaFileSystem required if you're using the matchFiles setting.")
+	local sep = cf "path_separator" or webylene.path_separator
+
+	local ext = self.settings.destinations.extension
+
+	local function findall(path, urlparts)
+		path = path or ""
+		local res = {}
+		local filepath = cf"path" .. sep .. self.settings.destinations.location .. sep .. path
+		for file in lfs.dir(filepath) do
+			if file ~= "." and file ~= ".." then
+				local filetype = lfs.attributes(filepath .. sep .. file, "mode")
+				if filetype == "file" and file:match( ext .. "$") then
+					local fname = file:sub(1, -(#ext+1))
+					table.insert(res, {destination=path .. fname, path=("/" .. table.concat(urlparts or {}) .. fname)})
+				elseif filetype == "directory" then
+					urlparts = urlparts or {}
+					table.insert(urlparts, file .. "/")
+					table.merge(res, findall(path .. file .. sep, urlparts))
+				end
+			end
+		end
+		return res
+	end
+	local res = findall()
+	for i, route in pairs(res) do
+		if not dest[route.destination] then
+			table.insert(routes, parser.parseRoute(route))
+		end
+	end
+end
 
 router = {
 	init = function(self)
@@ -49,6 +87,10 @@ router = {
 			--initialize routes
 			for i, raw_route in pairs(self.settings.routes) do
 				tinsert(routes, parser.parseRoute(raw_route))
+			end
+
+			if self.settings.matchFiles then
+				matchFiles(self)
 			end
 		end)
 		
