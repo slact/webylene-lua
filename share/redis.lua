@@ -90,7 +90,14 @@ end
 
 local function create_client(proto, client_socket, methods)
     local redis = load_methods(proto, methods)
-    redis.network.socket = client_socket
+    redis.network = {
+        socket = client_socket,
+        read   = network.read,
+        write  = network.write,
+    }
+    redis.requests = {
+        multibulk = request.multibulk,
+    }
     return redis
 end
 
@@ -275,16 +282,7 @@ end
 
 -- ############################################################################
 
-local client_prototype = {
-    network = {
-        socket = nil,
-        read   = network.read,
-        write  = network.write,
-    },
-    requests = {
-        multibulk = request.multibulk,
-    },
-}
+local client_prototype = {}
 
 client_prototype.raw_cmd = function(client, buffer)
     request.raw(client, buffer .. protocol.newline)
@@ -322,13 +320,17 @@ client_prototype.pipeline = function(client, block)
         return simulate_queued
     end
 
-    local pipeline_mt = setmetatable({}, {
+    local pipeline = setmetatable({}, {
         __index = function(env, name)
-            local cmd = commands[name]
+            local cmd = client[name]
             if cmd == nil then
-                error('unknown redis command: ' .. name, 2)
+                if _G[name] then
+                    return _G[name]
+                else
+                    error('unknown redis command: ' .. name, 2)
+                end
             end
-            return function(...)
+            return function(self, ...)
                 local reply = cmd(client, ...)
                 table.insert(parsers, #requests, reply.parser)
                 return reply
@@ -336,7 +338,7 @@ client_prototype.pipeline = function(client, block)
         end
     })
 
-    local success, retval = pcall(setfenv(block, pipeline_mt), _G)
+    local success, retval = pcall(block, pipeline)
 
     client.network.write, client.network.read = __netwrite, __netread
     if not success then error(retval, 0) end
@@ -345,6 +347,81 @@ client_prototype.pipeline = function(client, block)
 
     for i = 1, #requests do
         local raw_reply, parser = response.read(client), parsers[i]
+        if parser then
+            table.insert(replies, i, parser(raw_reply))
+        else
+            table.insert(replies, i, raw_reply)
+        end
+    end
+
+    return replies
+end
+
+client_prototype.transaction = function(client, ...)
+    local queued, parsers, replies = 0, {}, {}
+    local block, watch_keys = nil, nil
+
+    local args = {...}
+    if #args == 2 and type(args[1]) == 'table' then
+        watch_keys = args[1]
+        block = args[2]
+    else
+        block = args[1]
+    end
+
+    local transaction = setmetatable({
+        discard = function(...)
+            local reply = client:discard()
+            queued, parsers, replies = 0, {}, {}
+            return reply
+        end,
+        watch = function(...)
+            error('WATCH inside MULTI is not allowed')
+        end,
+
+        }, {
+
+        __index = function(env, name)
+            local cmd = client[name]
+            if cmd == nil then
+                if _G[name] then
+                    return _G[name]
+                else
+                    error('unknown redis command: ' .. name, 2)
+                end
+            end
+
+            return function(self, ...)
+                if queued == 0 then
+                    if client.watch and watch_keys then
+                        for _, key in pairs(watch_keys) do
+                            client:watch(key)
+                        end
+                    end
+                    client:multi()
+                end
+                local reply = cmd(client, ...)
+                if type(reply) ~= 'table' or reply.queued ~= true then
+                    error('a QUEUED reply was expected')
+                end
+                queued = queued + 1
+                table.insert(parsers, queued, reply.parser)
+                return reply
+            end
+        end,
+    })
+
+    local success, retval = pcall(block, transaction)
+    if not success then error(retval, 0) end
+    if queued == 0 then return replies end
+
+    local raw_replies = client:exec()
+    if raw_replies == nil then
+        error("MULTI/EXEC transaction aborted by the server")
+    end
+
+    for i = 1, queued do
+        local raw_reply, parser = raw_replies[i], parsers[i]
         if parser then
             table.insert(replies, i, parser(raw_reply))
         else
@@ -424,6 +501,8 @@ commands = {
     multi      = command('MULTI'),
     exec       = command('EXEC'),
     discard    = command('DISCARD'),
+    watch      = command('WATCH'),
+    unwatch    = command('UNWATCH'),
 
     -- commands operating on string values
     set        = command('SET'),

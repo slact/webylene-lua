@@ -234,7 +234,7 @@ engines = {
 		end,
 		
 		delete = function(self, id)
-			return redis:delete(self.keyf:format(id))
+			return redis:del(self.keyf:format(id))
 		end,
 		
 		gc = function() end

@@ -53,46 +53,8 @@ redis = {
 				
 				--add custom commands
 				local custom_commands = {
-					hset = false,
-					hmset = {
-						request = function(client, command, ...)
-							local args, arguments = {...}, {}
-							table.insert(arguments, args[1])
-							for k,v in pairs(args[2]) do
-								table.insert(arguments, k)
-								table.insert(arguments, v)
-							end
-							redis.requests.multibulk(client, command, unpack(arguments))
-						end
-					},
-					hget = false,
-					hmget = {
-						request = function(client, command, ...)
-							local args, arguments, tinsert = {...}, {}, table.insert
-							if (#args == 2 and type(args[2]) == 'table') then
-								tinsert(arguments, args[1])
-								for _,v in ipairs(args[2]) do
-									tinsert(arguments, v)
-								end
-								redis.requests.multibulk(client, command, unpack(arguments))
-							else
-								redis.requests.multibulk(client, command, ...)
-							end
-						end
-					},
-					hgetall = {
-						response = function(reply, command, ...)
-							local new_reply = { }
-							for i = 1, #reply, 2 do new_reply[reply[i]] = reply[i + 1] end
-							return new_reply
-						end 
-					},
-					multi = false,
-					exec= false,
-					discard = false,
 					watch = false,
 					unwatch = false,
-					setnx = false
 				}
 				for command_name, opt in pairs(custom_commands) do
 					pcall(redis_instance.add_command, redis_instance, command_name, opt and opt or nil)
