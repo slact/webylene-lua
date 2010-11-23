@@ -204,7 +204,12 @@ end
 -- usage: cf("foo", "bar", "baz") retrieves webylene.config.foo.bar.baz
 cf = function(...)
 	local conf = config
-	for i,v in ipairs({...}) do
+	for i,v in ipairs{...} do
+		if conf == nil then
+			error(("Config %s does not exist (While trying to fetch %s)."):format(
+					table.concat({...}, ".", 1, i-1),		table.concat({...}, ".")
+			), 0)
+		end
 		conf = conf[v]
 	end
 	return conf
