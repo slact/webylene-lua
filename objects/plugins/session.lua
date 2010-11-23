@@ -55,7 +55,7 @@ do
 			
 			local start = function()
 				--retrieve session id or create new one
-				self.id = webylene.request.cookies[self.config.name] or self:generate_id()
+				self.id = (webylene.request and webylene.request.cookies[self.config.name]) or self:generate_id()
 				self.data = serialize.unserialize(self.engine:read(self.id)) or {}
 				
 				status.ready = true
@@ -67,13 +67,13 @@ do
 			local finish = function()
 				status.ready = nil
 				self.engine:write(self.id, serialize.serialize(self.data))
-				local gc_chance = self.config.gc_chance
+				local gc_chance = self.config.gc_chance or 0
 				if gc_chance~=0 and libc_rand(1, ceiling(1/tonumber(gc_chance))) == 1 then
 					self.engine:gc(self.config.expires)
 				end
 				event:finish("sessionReady")--announce it to the world.
 			end
-			self.engine = engines[self.config.storage]
+			self.engine = assert(engines[self.config.storage], "Unknown session storage engine " .. (self.config.storage or "[none]"))
 			self.engine:init(start, finish)
 		end)
 		
@@ -115,7 +115,7 @@ end
 
 
 
---[[ Ahem. You may consider what you are about to see overkill. Normally, to generate
+--[[ Ahem. You may consider what you just saw was overkill. Normally, to generate
  a session ID, you would take some relatively short string (20-50 bits), hash
  the sucker, and bam! you've got your session ID. 
  
@@ -152,13 +152,8 @@ engines = {
 				self.table = session.config.table or "session"
 			end)
 		
-			event:addListener("databaseTransaction", function()
-				start()
-			end)
-			
-			event:addFinishListener("databaseTransaction", function()
-				finish()
-			end)
+			event:addListener("databaseTransaction", start)
+			event:addFinishListener("databaseTransaction", finish)
 			return self
 		end,
 		
@@ -181,7 +176,7 @@ engines = {
 			local safe_id, safe_data, now = db:esc(id), db:esc(data), db:now()
 			local res, err
 			if db.driver=="mysql" then
-				res, err = db:query(("INSERT INTO %s SET id='%s', data='%s', timestamp=%s ON DUPLICATE KEY UPDATE data='%s', timestamp=%s"):format(
+				res, err = db:query(("INSERT INTO %s SET id='%s', data='%s', timestamp='%s' ON DUPLICATE KEY UPDATE data='%s', timestamp='%s'"):format(
 											self.table,  safe_id,  safe_data,          now,                         safe_data,         now))
 			elseif db.driver=="sqlite" then
 				error("not yet.")
@@ -211,5 +206,38 @@ engines = {
 			assert(db:query("DELETE FROM " .. self.table .. " WHERE `timestamp` < from_unixtime(UNIX_TIMESTAMP() - " .. max_lifetime .. ");"))
 			return self
 		end
+	},
+	
+	redis = {
+		init = function(self, start, finish)
+			self.prefix = "sessiondata"
+			self.ttl = tonumber(session.config.expires) or 3600
+			if session.config.prefix  then self.prefix = self.prefix .. "." .. session.config.prefix end
+			self.keyf = self.prefix .. ":%s"
+			event:addListener("redisTransaction", start)
+			event:addFinishListener("redisTransaction", finish)
+		end,
+		
+		read = function(self, id)
+			return redis:get(self.keyf:format(id))
+		end,
+
+		write = function(self, id, data)
+			local redis, key = redis, self.keyf:format(id)
+			redis:set(key, data)
+			redis:expire(key, self.ttl)
+			return self
+		end,
+		
+		id_exists = function(self, id)
+			return redis:exists(self.keyf:format(id))
+		end,
+		
+		delete = function(self, id)
+			return redis:delete(self.keyf:format(id))
+		end,
+		
+		gc = function() end
 	}
 }
+
