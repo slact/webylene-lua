@@ -19,7 +19,6 @@
 	</request>
 ]]
 
-require "sha1"
 require "serialize"
 
 local engines
